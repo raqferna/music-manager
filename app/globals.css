@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg-grad-1: #0b0820;
+  --bg-grad-2: #1a0d3a;
+  --bg-grad-3: #06121f;
+  --accent: #a78bfa;
+  --accent-2: #22d3ee;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  color: rgb(229 231 235);
+  background:
+    radial-gradient(1200px 800px at 10% -10%, rgba(167, 139, 250, 0.18), transparent 60%),
+    radial-gradient(900px 700px at 110% 10%, rgba(34, 211, 238, 0.14), transparent 60%),
+    radial-gradient(900px 700px at 50% 120%, rgba(236, 72, 153, 0.12), transparent 60%),
+    linear-gradient(160deg, var(--bg-grad-1), var(--bg-grad-2) 50%, var(--bg-grad-3));
+  background-attachment: fixed;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* Custom scrollbars */
+.scroll-fancy::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll-fancy::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.35);
+  border-radius: 999px;
+}
+.scroll-fancy::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.55);
+}
+.scroll-fancy::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Range input (player progress / volume) */
+input[type="range"].nice-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 22px;
+  cursor: pointer;
+}
+input[type="range"].nice-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--val, 0%),
+    rgba(255, 255, 255, 0.18) var(--val, 0%),
+    rgba(255, 255, 255, 0.18) 100%
+  );
+}
+input[type="range"].nice-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
+}
+input[type="range"].nice-range:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+
+/* Animations */
+@keyframes float-pulse {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+.animate-float {
+  animation: float-pulse 4s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
