@@ -6,6 +6,7 @@ una carpeta y muestra junto a cada canción su letra en PDF.
 
 Si una canción no tiene PDF, puedes:
 
+- **Buscar en internet** (LRCLib) y elegir la letra correcta.
 - **Pegar el texto** de la letra y la app lo convierte en PDF automáticamente.
 - **Pegar la URL** de un PDF y la app lo descarga.
 
@@ -52,6 +53,7 @@ npm start
 - `app/api/audio/[name]` – sirve el audio con soporte de Range para seek.
 - `app/api/pdf/[base]` – sirve / borra el PDF emparejado a una canción.
 - `app/api/lyrics` – genera el PDF (a partir de texto) o lo descarga (URL).
+- `app/api/lyrics/search` – busca letras en internet (LRCLib) y obtiene el texto completo.
 - `lib/musicDir.ts` – resuelve la carpeta de música y sanea nombres de archivo.
 
 ## Notas de seguridad

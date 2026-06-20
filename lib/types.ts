@@ -12,3 +12,14 @@ export type Song = {
   /** Si existe un PDF de letra con el mismo baseName. */
   hasLyrics: boolean;
 };
+
+export type LyricSearchResult = {
+  id: number;
+  title: string;
+  artist: string;
+  album?: string;
+  duration?: number;
+  snippet: string;
+  hasFullLyrics: boolean;
+  source: "lrclib";
+};

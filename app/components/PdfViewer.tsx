@@ -36,8 +36,8 @@ export default function PdfViewer({ song, onAddLyrics }: Props) {
             Esta canción no tiene letra todavía
           </h3>
           <p className="mt-1 text-sm text-white/50">
-            Pega el texto de la letra o pega la URL de un PDF y la guardaré
-            automáticamente junto al audio.
+            Busca la letra en internet, pega el texto manualmente o descarga un
+            PDF desde una URL. Se guardará automáticamente junto al audio.
           </p>
           <button
             onClick={onAddLyrics}
