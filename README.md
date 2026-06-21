@@ -50,6 +50,7 @@ npm start
 - `app/MusicApp.tsx` – cliente principal: estado, datos y composición de UI.
 - `app/components/` – `SongList`, `Player`, `PdfViewer`, `LyricsModal`, iconos.
 - `app/api/songs` – lista las canciones y comprueba qué PDFs hay.
+- `app/api/songs/upload` – sube archivos de audio a la carpeta de música.
 - `app/api/audio/[name]` – sirve el audio con soporte de Range para seek.
 - `app/api/pdf/[base]` – sirve / borra el PDF emparejado a una canción.
 - `app/api/lyrics` – genera el PDF (a partir de texto) o lo descarga (URL).

@@ -136,3 +136,12 @@ export function Trash(props: IconProps) {
     </svg>
   );
 }
+export function Upload(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 16V4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}

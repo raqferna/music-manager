@@ -6,6 +6,7 @@ import SongList from "./components/SongList";
 import Player from "./components/Player";
 import PdfViewer from "./components/PdfViewer";
 import LyricsModal from "./components/LyricsModal";
+import MusicUploader from "./components/MusicUploader";
 import { Disc, Search, FolderOpen } from "./components/icons";
 
 type ApiResponse = { dir: string; songs: Song[] };
@@ -20,7 +21,7 @@ export default function MusicApp() {
   const [showLyricsModal, setShowLyricsModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  async function refresh() {
+  async function refresh(selectFile?: string | null) {
     setLoading(true);
     setError(null);
     try {
@@ -29,19 +30,30 @@ export default function MusicApp() {
       const data: ApiResponse = await res.json();
       setSongs(data.songs);
       setMusicDir(data.dir);
-      // Si la canción seleccionada ya no existe, deseleccionar.
-      if (selectedFile && !data.songs.some((s) => s.file === selectedFile)) {
-        setSelectedFile(null);
-      }
-      // Si no hay nada seleccionado y hay canciones, seleccionar la primera.
-      if (!selectedFile && data.songs.length > 0) {
+
+      const preferred =
+        selectFile ??
+        (selectedFile && data.songs.some((s) => s.file === selectedFile)
+          ? selectedFile
+          : null);
+
+      if (preferred && data.songs.some((s) => s.file === preferred)) {
+        setSelectedFile(preferred);
+      } else if (data.songs.length > 0) {
         setSelectedFile(data.songs[0].file);
+      } else {
+        setSelectedFile(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleUploaded(files: string[]) {
+    const last = files[files.length - 1];
+    await refresh(last);
   }
 
   useEffect(() => {
@@ -105,7 +117,9 @@ export default function MusicApp() {
         <div className="grid gap-5 lg:grid-cols-[minmax(320px,420px)_1fr]">
           {/* Panel izquierdo: búsqueda + lista */}
           <section className="glass rounded-3xl p-4 md:p-5 animate-fade-up">
-            <div className="relative mb-4">
+            <MusicUploader onUploaded={handleUploaded} compact />
+
+            <div className="relative mb-4 mt-4">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
               <input
                 value={query}
@@ -122,7 +136,7 @@ export default function MusicApp() {
                   : `${filtered.length} de ${songs.length} canciones`}
               </span>
               <button
-                onClick={refresh}
+                onClick={() => void refresh()}
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/70 transition hover:bg-white/10 hover:text-white"
               >
                 Refrescar
@@ -201,19 +215,12 @@ export default function MusicApp() {
 
 function EmptyState({ dir }: { dir: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center text-sm text-white/60">
-      <p className="mb-2 text-white/80">Tu carpeta está vacía.</p>
-      <p>
-        Añade ficheros <code className="rounded bg-white/10 px-1">.mp3</code>,{" "}
-        <code className="rounded bg-white/10 px-1">.wav</code>,{" "}
-        <code className="rounded bg-white/10 px-1">.m4a</code>… en:
-      </p>
+    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-center text-sm text-white/60">
+      <p className="mb-1 text-white/80">Tu biblioteca está vacía.</p>
+      <p>Usa la zona de arriba para subir archivos o colócalos en:</p>
       <code className="mt-2 inline-block rounded-lg bg-white/10 px-2 py-1 text-white/80">
         {dir}
       </code>
-      <p className="mt-3 text-white/50">
-        Después pulsa <em>Refrescar</em> para verlas aparecer aquí.
-      </p>
     </div>
   );
 }

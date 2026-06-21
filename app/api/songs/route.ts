@@ -1,12 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { AUDIO_EXTS } from "@/lib/audio";
 import { getMusicDir } from "@/lib/musicDir";
 import type { Song } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const AUDIO_EXTS = new Set([".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"]);
 
 function toTitle(name: string) {
   return name
