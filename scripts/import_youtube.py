@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Importa una canción desde YouTube al gestor de música:
-descarga audio, quita la voz y busca la letra.
+descarga audio, quita la voz y devuelve metadatos básicos.
 
 Reutiliza el proyecto quitar-voz (QUITAR_VOZ_PATH o ../quitar-voz).
 Imprime un JSON en stdout como última línea.
@@ -21,7 +21,7 @@ def resolve_quitar_voz() -> Path:
     configured = os.environ.get("QUITAR_VOZ_PATH", "").strip()
     if configured:
         return Path(configured).expanduser().resolve()
-    return Path(__file__).resolve().parent.parent.parent / "quitar-voz"
+    return Path(__file__).resolve().parent.parent / "quitar-voz"
 
 
 def safe_base_name(artist: str, title: str) -> str:
@@ -29,6 +29,52 @@ def safe_base_name(artist: str, title: str) -> str:
     cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", raw)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned[:120] or "cancion-youtube"
+
+
+def parse_artist_title(video_title: str, uploader: str = "") -> tuple[str, str]:
+    title = (video_title or "").strip()
+    artist = (uploader or "").strip()
+    if " - " in title:
+        left, right = title.split(" - ", 1)
+        if left.strip() and right.strip():
+            return left.strip(), right.strip()
+    return artist, title
+
+
+def fetch_youtube_metadata(url: str) -> tuple[str, str]:
+    import yt_dlp
+
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    if not info:
+        return "", ""
+    title = str(info.get("title") or "")
+    uploader = str(
+        info.get("artist") or info.get("uploader") or info.get("channel") or ""
+    )
+    return parse_artist_title(title, uploader)
+
+
+def resolve_separation_model_file() -> str:
+    models = {
+        "fast": "UVR-MDX-NET-Inst_3.onnx",
+        "quality": "MDX23C-8KFFT-InstVoc_HQ.ckpt",
+    }
+    explicit = os.environ.get("SEPARATION_MODEL_FILE", "").strip()
+    if explicit:
+        return explicit
+    mode = os.environ.get("SEPARATION_MODEL", "fast").strip().lower()
+    if mode in models:
+        return models[mode]
+    if mode.endswith((".onnx", ".ckpt", ".pth")):
+        return mode
+    return models["fast"]
 
 
 def emit(payload: dict) -> None:
@@ -44,25 +90,28 @@ def main() -> int:
     output_dir = Path(sys.argv[2]).expanduser().resolve()
 
     quitar_voz = resolve_quitar_voz()
-    karaoke_dir = quitar_voz / "karaoke-letras"
     if not quitar_voz.is_dir():
         emit(
             {
                 "ok": False,
-                "error": f"No se encuentra quitar-voz en {quitar_voz}. "
-                "Define QUITAR_VOZ_PATH en .env",
+                "error": f"No se encuentra quitar-voz en {quitar_voz}. Define QUITAR_VOZ_PATH.",
             }
         )
         return 1
 
-    for folder in (str(quitar_voz), str(karaoke_dir)):
-        if folder not in sys.path:
-            sys.path.insert(0, folder)
+    folder = str(quitar_voz)
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+
+    os.environ["SEPARATION_MODEL_FILE"] = resolve_separation_model_file()
 
     try:
-        from app import _aplicar_ffmpeg_al_entorno, _comprobar_dependencias, _procesar_archivo
-        from letras import buscar_letra, parsear_artista_titulo
-        from youtube_info import descargar_youtube_con_info
+        from app import (
+            _aplicar_ffmpeg_al_entorno,
+            _comprobar_dependencias,
+            _procesar_archivo,
+            descargar_audio_youtube,
+        )
     except ImportError as exc:
         emit(
             {
@@ -80,15 +129,15 @@ def main() -> int:
 
     _aplicar_ffmpeg_al_entorno()
 
-    path_audio, info, dl_err = descargar_youtube_con_info(url)
-    if dl_err or not path_audio:
-        emit({"ok": False, "error": dl_err or "No se descargó audio"})
-        return 1
+    try:
+        artist, title = fetch_youtube_metadata(url)
+    except Exception:
+        artist, title = "", ""
 
-    artist = ""
-    title = ""
-    if info:
-        artist, title = parsear_artista_titulo(info.titulo, info.uploader)
+    path_audio, dl_err = descargar_audio_youtube(url)
+    if dl_err or not path_audio:
+        emit({"ok": False, "error": (dl_err or "No se descargó audio").replace("\n", " ")})
+        return 1
 
     base_name = safe_base_name(artist, title)
     dir_descarga = os.path.dirname(path_audio)
@@ -113,7 +162,6 @@ def main() -> int:
         if inst_parent.name.startswith("quitar_voz_"):
             shutil.rmtree(inst_parent, ignore_errors=True)
 
-        resultado = buscar_letra(artist, title)
         emit(
             {
                 "ok": True,
@@ -121,9 +169,9 @@ def main() -> int:
                 "artist": artist,
                 "title": title,
                 "file": dest.name,
-                "lyrics": resultado.letra if resultado else None,
-                "lyricsSource": resultado.fuente if resultado else None,
-                "hasLyrics": bool(resultado and resultado.letra),
+                "lyrics": None,
+                "lyricsSource": None,
+                "hasLyrics": False,
                 "message": "Instrumental guardado correctamente.",
             }
         )

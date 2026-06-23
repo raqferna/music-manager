@@ -1,5 +1,5 @@
-import MusicApp from "./MusicApp";
+import CatalogApp from "./CatalogApp";
 
 export default function Page() {
-  return <MusicApp />;
+  return <CatalogApp />;
 }

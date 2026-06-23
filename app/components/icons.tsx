@@ -145,3 +145,25 @@ export function Upload(props: IconProps) {
     </svg>
   );
 }
+export function Link(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+export function Loader(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 2v4" />
+      <path d="M12 18v4" opacity="0.3" />
+      <path d="m4.93 4.93 2.83 2.83" opacity="0.7" />
+      <path d="m16.24 16.24 2.83 2.83" opacity="0.3" />
+      <path d="M2 12h4" opacity="0.5" />
+      <path d="M18 12h4" opacity="0.3" />
+      <path d="m4.93 19.07 2.83-2.83" opacity="0.3" />
+      <path d="m16.24 7.76 2.83-2.83" opacity="0.7" />
+    </svg>
+  );
+}

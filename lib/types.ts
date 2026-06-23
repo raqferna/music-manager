@@ -23,3 +23,15 @@ export type LyricSearchResult = {
   hasFullLyrics: boolean;
   source: "lrclib";
 };
+
+export type YoutubeImportResult = {
+  ok: true;
+  baseName: string;
+  artist: string;
+  title: string;
+  file: string;
+  lyrics: string | null;
+  lyricsSource: string | null;
+  hasLyrics: boolean;
+  message: string;
+};

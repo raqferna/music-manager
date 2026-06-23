@@ -24,3 +24,16 @@ export function isAudioFilename(name: string): boolean {
 export function maxUploadBytes(): number {
   return MAX_BYTES;
 }
+
+const YOUTUBE_PATTERNS = [
+  /^https?:\/\/(www\.)?youtube\.com\/watch\?/i,
+  /^https?:\/\/(www\.)?youtube\.com\/shorts\//i,
+  /^https?:\/\/youtu\.be\//i,
+  /^https?:\/\/(www\.)?youtube\.com\/live\//i,
+];
+
+export function isYoutubeUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  return YOUTUBE_PATTERNS.some((pattern) => pattern.test(trimmed));
+}

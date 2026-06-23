@@ -1,0 +1,18 @@
+services:
+  catalogo:
+    build: .
+    image: mi-catalogo-musica
+    container_name: app-catalogo
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "5001"
+      MUSIC_DIR: /music-dir
+      QUITAR_VOZ_PATH: /quitarvoces-root/quitar-voz
+      PYTHONPATH: /quitarvoces-root/quitar-voz
+      SEPARATION_MODEL: fast
+    volumes:
+      - ${QUITAR_VOZ_HOST_PATH:-../quitarvoces}:/quitarvoces-root:ro
+      - ${MUSIC_HOST_PATH:-./music}:/music-dir

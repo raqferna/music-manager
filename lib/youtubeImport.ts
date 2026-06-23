@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
+import { resolveSeparationModelFile } from "@/lib/separationModel";
 
 export type YoutubeImportResult = {
   ok: true;
@@ -13,16 +15,33 @@ export type YoutubeImportResult = {
   message: string;
 };
 
-function resolvePythonBin(): string {
-  return process.env.PYTHON_PATH?.trim() || "python3";
-}
-
 function resolveQuitarVozPath(): string {
   const configured = process.env.QUITAR_VOZ_PATH?.trim();
   if (configured) {
     return path.resolve(configured.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? ""));
   }
   return path.resolve(process.cwd(), "..", "quitar-voz");
+}
+
+function resolvePythonBin(quitarVozPath: string): string {
+  const configured = process.env.PYTHON_PATH?.trim();
+  if (configured) {
+    const resolved = path.resolve(
+      configured.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? ""),
+    );
+    if (fs.existsSync(resolved)) {
+      return resolved;
+    }
+  }
+
+  for (const rel of ["venv/bin/python3", "venv/bin/python", ".venv/bin/python3", ".venv/bin/python"]) {
+    const candidate = path.join(quitarVozPath, rel);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "python3";
 }
 
 function parseScriptOutput(stdout: string): YoutubeImportResult {
@@ -46,14 +65,16 @@ export async function importSongFromYoutube(
   musicDir: string,
 ): Promise<YoutubeImportResult> {
   const scriptPath = path.join(process.cwd(), "scripts", "import_youtube.py");
-  const python = resolvePythonBin();
   const quitarVozPath = resolveQuitarVozPath();
+  const python = resolvePythonBin(quitarVozPath);
+  const separationModel = resolveSeparationModelFile();
 
   return new Promise((resolve, reject) => {
     const child = spawn(python, [scriptPath, url, musicDir], {
       env: {
         ...process.env,
         QUITAR_VOZ_PATH: quitarVozPath,
+        SEPARATION_MODEL_FILE: separationModel,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
