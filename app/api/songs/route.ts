@@ -1,19 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { AUDIO_EXTS } from "@/lib/audio";
 import { getMusicDir } from "@/lib/musicDir";
-import type { Song } from "@/lib/types";
+import { buildSongGroups, isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
 
 export const dynamic = "force-dynamic";
-
-function toTitle(name: string) {
-  return name
-    .replace(/[_\-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export async function GET() {
   try {
@@ -26,26 +17,23 @@ export async function GET() {
         .map((e) => path.basename(e.name, path.extname(e.name)).toLowerCase()),
     );
 
-    const songs: Song[] = [];
+    const raw = [];
     for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!AUDIO_EXTS.has(ext)) continue;
-      const baseName = path.basename(entry.name, ext);
+      if (!entry.isFile() || !isAudioFile(entry.name)) continue;
+      const baseName = path.basename(entry.name, path.extname(entry.name));
       const stat = await fs.stat(path.join(dir, entry.name));
-      songs.push({
+      raw.push({
         file: entry.name,
         baseName,
-        title: toTitle(baseName),
         size: stat.size,
         modifiedAt: stat.mtimeMs,
-        hasLyrics: pdfBaseNames.has(baseName.toLowerCase()),
+        parsed: parseAudioBaseName(baseName),
       });
     }
 
-    songs.sort((a, b) => a.title.localeCompare(b.title, "es"));
+    const groups = buildSongGroups(raw, pdfBaseNames);
 
-    return NextResponse.json({ dir, songs });
+    return NextResponse.json({ dir, groups });
   } catch (err) {
     console.error("/api/songs error", err);
     return NextResponse.json(

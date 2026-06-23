@@ -141,22 +141,27 @@ def main() -> int:
 
     base_name = safe_base_name(artist, title)
     dir_descarga = os.path.dirname(path_audio)
+    group_key = base_name
 
     try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        vocal_dest = output_dir / f"{group_key} (con voz).wav"
+        n = 1
+        while vocal_dest.exists():
+            n += 1
+            vocal_dest = output_dir / f"{group_key} ({n}) (con voz).wav"
+            group_key = f"{base_name} ({n})"
+
+        shutil.copy2(path_audio, vocal_dest)
+
         path_instrumental, sep_msg = _procesar_archivo(path_audio)
         if not path_instrumental:
             emit({"ok": False, "error": sep_msg.replace("\n", " ")})
             return 1
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        final_base = base_name
-        n = 1
-        while (output_dir / f"{final_base}.wav").exists():
-            n += 1
-            final_base = f"{base_name} ({n})"
-
-        dest = output_dir / f"{final_base}.wav"
-        shutil.move(path_instrumental, dest)
+        inst_dest = output_dir / f"{group_key} (instrumental).wav"
+        shutil.move(path_instrumental, inst_dest)
 
         inst_parent = Path(path_instrumental).parent
         if inst_parent.name.startswith("quitar_voz_"):
@@ -165,14 +170,17 @@ def main() -> int:
         emit(
             {
                 "ok": True,
-                "baseName": final_base,
+                "groupKey": group_key,
+                "baseName": group_key,
                 "artist": artist,
                 "title": title,
-                "file": dest.name,
+                "file": inst_dest.name,
+                "instrumentalFile": inst_dest.name,
+                "vocalFile": vocal_dest.name,
                 "lyrics": None,
                 "lyricsSource": None,
                 "hasLyrics": False,
-                "message": "Instrumental guardado correctamente.",
+                "message": "Instrumental y versión con voz guardados correctamente.",
             }
         )
         return 0

@@ -1,20 +1,11 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { resolveSeparationModelFile } from "@/lib/separationModel";
 
-export type YoutubeImportResult = {
+export type VocalDownloadResult = {
   ok: true;
   groupKey: string;
-  baseName: string;
-  artist: string;
-  title: string;
   file: string;
-  instrumentalFile: string;
-  vocalFile: string;
-  lyrics: string | null;
-  lyricsSource: string | null;
-  hasLyrics: boolean;
   message: string;
 };
 
@@ -47,37 +38,37 @@ function resolvePythonBin(quitarVozPath: string): string {
   return "python3";
 }
 
-function parseScriptOutput(stdout: string): YoutubeImportResult {
-  const lines = stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const last = lines.at(-1);
+function parseOutput(stdout: string): VocalDownloadResult {
+  const last =
+    stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .at(-1) ?? "";
   if (!last) {
-    throw new Error("El script de importación no devolvió datos.");
+    throw new Error("El script de descarga no devolvió datos.");
   }
-  const parsed = JSON.parse(last) as YoutubeImportResult & { ok?: boolean; error?: string };
+  const parsed = JSON.parse(last) as VocalDownloadResult & { ok?: boolean; error?: string };
   if (!parsed.ok) {
-    throw new Error(parsed.error ?? "Error desconocido al importar desde YouTube");
+    throw new Error(parsed.error ?? "Error desconocido al descargar la versión con voz");
   }
   return parsed;
 }
 
-export async function importSongFromYoutube(
+export async function downloadVocalFromYoutube(
   url: string,
   musicDir: string,
-): Promise<YoutubeImportResult> {
-  const scriptPath = path.join(process.cwd(), "scripts", "import_youtube.py");
+  groupKey: string,
+): Promise<VocalDownloadResult> {
+  const scriptPath = path.join(process.cwd(), "scripts", "download_vocal_youtube.py");
   const quitarVozPath = resolveQuitarVozPath();
   const python = resolvePythonBin(quitarVozPath);
-  const separationModel = resolveSeparationModelFile();
 
   return new Promise((resolve, reject) => {
-    const child = spawn(python, [scriptPath, url, musicDir], {
+    const child = spawn(python, [scriptPath, url, musicDir, groupKey], {
       env: {
         ...process.env,
         QUITAR_VOZ_PATH: quitarVozPath,
-        SEPARATION_MODEL_FILE: separationModel,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -99,7 +90,7 @@ export async function importSongFromYoutube(
     child.on("close", (code) => {
       if (code === 0) {
         try {
-          resolve(parseScriptOutput(stdout));
+          resolve(parseOutput(stdout));
         } catch (err) {
           reject(err instanceof Error ? err : new Error(String(err)));
         }
@@ -114,9 +105,9 @@ export async function importSongFromYoutube(
             .filter(Boolean)
             .at(-1) ?? "{}",
         ) as { error?: string };
-        reject(new Error(payload.error ?? stderr.trim() ?? `Importación fallida (código ${code})`));
+        reject(new Error(payload.error ?? stderr.trim() ?? `Descarga fallida (código ${code})`));
       } catch {
-        reject(new Error(stderr.trim() || stdout.trim() || `Importación fallida (código ${code})`));
+        reject(new Error(stderr.trim() || stdout.trim() || `Descarga fallida (código ${code})`));
       }
     });
   });

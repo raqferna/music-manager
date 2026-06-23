@@ -1,13 +1,14 @@
 "use client";
 
-import type { Song } from "@/lib/types";
-import { FileMusic, FileText, Plus } from "./icons";
+import type { SongGroup } from "@/lib/types";
+import { FileMusic, FileText, Mic, Plus } from "./icons";
 
 type Props = {
-  songs: Song[];
-  selectedFile: string | null;
-  onSelect: (song: Song) => void;
-  onRequestLyrics: (song: Song) => void;
+  groups: SongGroup[];
+  selectedGroupKey: string | null;
+  onSelect: (group: SongGroup) => void;
+  onRequestLyrics: (group: SongGroup) => void;
+  onRequestVocal: (group: SongGroup) => void;
 };
 
 function formatSize(bytes: number) {
@@ -19,12 +20,13 @@ function formatSize(bytes: number) {
 }
 
 export default function SongList({
-  songs,
-  selectedFile,
+  groups,
+  selectedGroupKey,
   onSelect,
   onRequestLyrics,
+  onRequestVocal,
 }: Props) {
-  if (songs.length === 0) {
+  if (groups.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/50">
         Sin resultados para tu búsqueda.
@@ -34,17 +36,17 @@ export default function SongList({
 
   return (
     <ul className="scroll-fancy max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-      {songs.map((song) => {
-        const active = selectedFile === song.file;
+      {groups.map((group) => {
+        const active = selectedGroupKey === group.groupKey;
         return (
-          <li key={song.file}>
+          <li key={group.groupKey}>
             <div
               className={`group flex items-center gap-3 rounded-2xl border p-3 transition cursor-pointer ${
                 active
                   ? "border-violet-400/40 bg-violet-400/10 shadow-[0_0_0_1px_rgba(167,139,250,0.25)_inset]"
                   : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.06]"
               }`}
-              onClick={() => onSelect(song)}
+              onClick={() => onSelect(group)}
             >
               <div
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
@@ -55,33 +57,58 @@ export default function SongList({
               </div>
               <div className="min-w-0 grow">
                 <div className="truncate text-sm font-medium text-white/90">
-                  {song.title}
+                  {group.title}
                 </div>
-                <div className="truncate text-xs text-white/40">
-                  {song.file} · {formatSize(song.size)}
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wide">
+                  {group.hasInstrumental ? (
+                    <span className="rounded-full bg-cyan-400/15 px-2 py-0.5 text-cyan-200">
+                      Sin voz
+                    </span>
+                  ) : null}
+                  {group.hasVocal ? (
+                    <span className="rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-200">
+                      Con voz
+                    </span>
+                  ) : null}
+                  <span className="text-white/35 normal-case">{formatSize(group.size)}</span>
                 </div>
               </div>
-              {song.hasLyrics ? (
-                <span
-                  title="Letra disponible"
-                  className="flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-emerald-200"
-                >
-                  <FileText className="h-3 w-3" />
-                  Letra
-                </span>
-              ) : (
-                <button
-                  title="Añadir letra"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRequestLyrics(song);
-                  }}
-                  className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-violet-400/40 hover:bg-violet-400/15 hover:text-violet-100"
-                >
-                  <Plus className="h-3 w-3" />
-                  Letra
-                </button>
-              )}
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                {group.hasLyrics ? (
+                  <span
+                    title="Letra disponible"
+                    className="flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-emerald-200"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Letra
+                  </span>
+                ) : (
+                  <button
+                    title="Añadir letra"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestLyrics(group);
+                    }}
+                    className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-violet-400/40 hover:bg-violet-400/15 hover:text-violet-100"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Letra
+                  </button>
+                )}
+                {!group.hasVocal && group.hasInstrumental ? (
+                  <button
+                    title="Descargar versión con voz desde YouTube"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestVocal(group);
+                    }}
+                    className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-cyan-400/40 hover:bg-cyan-400/15 hover:text-cyan-100"
+                  >
+                    <Mic className="h-3 w-3" />
+                    + Voz
+                  </button>
+                ) : null}
+              </div>
             </div>
           </li>
         );

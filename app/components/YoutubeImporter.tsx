@@ -5,7 +5,7 @@ import { isYoutubeUrl } from "@/lib/audio";
 import { Link, Loader } from "./icons";
 
 type Props = {
-  onImported: (file: string) => void | Promise<void>;
+  onImported: (groupKey: string) => void | Promise<void>;
 };
 
 type JobStatus = "pending" | "running" | "completed" | "failed";
@@ -14,7 +14,13 @@ type JobPayload = {
   jobId: string;
   url?: string;
   status: JobStatus;
-  result?: { file?: string; title?: string; baseName?: string; message?: string } | null;
+  result?: {
+    file?: string;
+    groupKey?: string;
+    title?: string;
+    baseName?: string;
+    message?: string;
+  } | null;
   error?: string | null;
   createdAt?: number;
   updatedAt?: number;
@@ -72,13 +78,14 @@ export default function YoutubeImporter({ onImported }: Props) {
       }
 
       const label = data.result?.title || data.result?.baseName || file;
+      const groupKey = data.result?.groupKey || data.result?.baseName || file;
       setMessage(`Instrumental añadido: ${label}`);
       setError(null);
       setNetworkWarning(null);
       setJobStatus("completed");
       setImporting(false);
       setUrl("");
-      await onImportedRef.current(file);
+      await onImportedRef.current(groupKey);
     },
     [stopPolling],
   );

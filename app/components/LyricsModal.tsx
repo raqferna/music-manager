@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { LyricSearchResult, Song } from "@/lib/types";
+import type { LyricSearchResult, SongGroup } from "@/lib/types";
 import { Search, X } from "./icons";
 
 type Props = {
-  song: Song;
+  group: SongGroup;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -19,9 +19,9 @@ function formatDuration(seconds?: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function LyricsModal({ song, onClose, onSaved }: Props) {
+export default function LyricsModal({ group, onClose, onSaved }: Props) {
   const [mode, setMode] = useState<Mode>("search");
-  const [searchQuery, setSearchQuery] = useState(song.title);
+  const [searchQuery, setSearchQuery] = useState(group.title);
   const [results, setResults] = useState<LyricSearchResult[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
@@ -67,9 +67,9 @@ export default function LyricsModal({ song, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (mode === "search") {
-      void runSearch(song.title);
+      void runSearch(group.title);
     }
-  }, [mode, song.title, runSearch]);
+  }, [mode, group.title, runSearch]);
 
   async function selectResult(result: LyricSearchResult) {
     if (!result.hasFullLyrics) {
@@ -104,10 +104,10 @@ export default function LyricsModal({ song, onClose, onSaved }: Props) {
     try {
       const body =
         mode === "url"
-          ? { baseName: song.baseName, pdfUrl: url }
+          ? { baseName: group.groupKey, pdfUrl: url }
           : {
-              baseName: song.baseName,
-              title: previewTitle || song.title,
+              baseName: group.groupKey,
+              title: previewTitle || group.title,
               lyrics: text,
             };
       const res = await fetch("/api/lyrics", {
@@ -148,12 +148,12 @@ export default function LyricsModal({ song, onClose, onSaved }: Props) {
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold text-white">
-              Añadir letra · {song.title}
+              Añadir letra · {group.title}
             </h2>
             <p className="truncate text-xs text-white/50">
               Se guardará como{" "}
               <code className="rounded bg-white/10 px-1">
-                {song.baseName}.pdf
+                {group.groupKey}.pdf
               </code>{" "}
               en la carpeta de música.
             </p>
@@ -201,7 +201,7 @@ export default function LyricsModal({ song, onClose, onSaved }: Props) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void runSearch(searchQuery);
                     }}
-                    placeholder={`Buscar letra de "${song.title}"…`}
+                    placeholder={`Buscar letra de "${group.title}"…`}
                     className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
                   />
                 </div>
@@ -304,7 +304,7 @@ export default function LyricsModal({ song, onClose, onSaved }: Props) {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={`Pega aquí la letra de "${song.title}"…\n\nCada línea aparecerá tal cual en el PDF.`}
+              placeholder={`Pega aquí la letra de "${group.title}"…\n\nCada línea aparecerá tal cual en el PDF.`}
               className="scroll-fancy h-72 w-full resize-none rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
             />
           ) : (

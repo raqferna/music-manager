@@ -1,16 +1,25 @@
 export type Song = {
-  /** Nombre del fichero de audio (con extensión). */
+  /** @deprecated Usar SongGroup en la lista del catálogo. */
   file: string;
-  /** Nombre base sin extensión, usado para emparejar con su PDF. */
   baseName: string;
-  /** Etiqueta legible (titlecase del baseName). */
   title: string;
-  /** Tamaño en bytes. */
   size: number;
-  /** Última modificación (epoch ms). */
   modifiedAt: number;
-  /** Si existe un PDF de letra con el mismo baseName. */
   hasLyrics: boolean;
+};
+
+/** Canción agrupada: instrumental y/o voz comparten letra PDF. */
+export type SongGroup = {
+  /** Clave compartida para PDF y emparejamiento de variantes. */
+  groupKey: string;
+  title: string;
+  instrumentalFile: string | null;
+  vocalFile: string | null;
+  hasInstrumental: boolean;
+  hasVocal: boolean;
+  hasLyrics: boolean;
+  modifiedAt: number;
+  size: number;
 };
 
 export type LyricSearchResult = {
@@ -26,10 +35,13 @@ export type LyricSearchResult = {
 
 export type YoutubeImportResult = {
   ok: true;
+  groupKey: string;
   baseName: string;
   artist: string;
   title: string;
   file: string;
+  instrumentalFile: string;
+  vocalFile: string;
   lyrics: string | null;
   lyricsSource: string | null;
   hasLyrics: boolean;

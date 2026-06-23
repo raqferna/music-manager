@@ -7,11 +7,16 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Song } from "@/lib/types";
+import { resolvePlaybackFile } from "@/lib/songGroups";
+import type { SongGroup } from "@/lib/types";
 import { Pause, Play, SkipBack, SkipForward, Volume, VolumeMute } from "./icons";
 
+export type PlaybackVariant = "instrumental" | "vocal";
+
 type Props = {
-  song: Song | null;
+  group: SongGroup | null;
+  variant: PlaybackVariant;
+  onVariantChange: (variant: PlaybackVariant) => void;
   onEnded?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -26,7 +31,7 @@ function fmt(seconds: number) {
 }
 
 const Player = forwardRef<HTMLAudioElement, Props>(function Player(
-  { song, onEnded, onPrev, onNext },
+  { group, variant, onVariantChange, onEnded, onPrev, onNext },
   ref,
 ) {
   const innerRef = useRef<HTMLAudioElement | null>(null);
@@ -38,13 +43,14 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
   const [volume, setVolume] = useState(0.85);
   const [muted, setMuted] = useState(false);
 
-  // Reset al cambiar de canción.
+  const activeFile = group ? resolvePlaybackFile(group, variant) : null;
+  const canToggleVariant = Boolean(group?.hasInstrumental && group?.hasVocal);
+
   useEffect(() => {
     setCurrent(0);
     setDuration(0);
-  }, [song?.file]);
+  }, [activeFile]);
 
-  // Sincroniza volumen y mute con el elemento.
   useEffect(() => {
     const el = innerRef.current;
     if (el) {
@@ -55,7 +61,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
 
   function togglePlay() {
     const el = innerRef.current;
-    if (!el || !song) return;
+    if (!el || !activeFile) return;
     if (el.paused) {
       void el.play();
     } else {
@@ -73,7 +79,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
 
   const progressPct = duration > 0 ? (current / duration) * 100 : 0;
   const volumePct = (muted ? 0 : volume) * 100;
-  const audioSrc = song ? `/api/audio/${encodeURIComponent(song.file)}` : "";
+  const audioSrc = activeFile ? `/api/audio/${encodeURIComponent(activeFile)}` : "";
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,12 +98,42 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
         </div>
         <div className="min-w-0 grow">
           <div className="truncate text-base font-semibold text-white">
-            {song ? song.title : "Selecciona una canción"}
+            {group ? group.title : "Selecciona una canción"}
           </div>
           <div className="truncate text-xs text-white/50">
-            {song ? song.file : "Tu lista está a la izquierda."}
+            {activeFile
+              ? variant === "vocal"
+                ? "Versión con voz"
+                : "Versión sin voz (instrumental)"
+              : "Tu lista está a la izquierda."}
           </div>
         </div>
+        {canToggleVariant ? (
+          <div className="flex rounded-full border border-white/10 bg-white/5 p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => onVariantChange("instrumental")}
+              className={`rounded-full px-3 py-1 transition ${
+                variant === "instrumental"
+                  ? "bg-cyan-400/20 text-cyan-100"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              Sin voz
+            </button>
+            <button
+              type="button"
+              onClick={() => onVariantChange("vocal")}
+              className={`rounded-full px-3 py-1 transition ${
+                variant === "vocal"
+                  ? "bg-violet-400/20 text-violet-100"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              Con voz
+            </button>
+          </div>
+        ) : null}
         <div className="hidden items-center gap-2 md:flex">
           <button
             onClick={() => setMuted((m) => !m)}
@@ -139,7 +175,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
           step={0.1}
           value={progressPct}
           onChange={onSeek}
-          disabled={!song}
+          disabled={!activeFile}
           className="nice-range grow disabled:opacity-50"
           style={{ ["--val" as string]: `${progressPct}%` }}
         />
@@ -151,7 +187,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
       <div className="flex items-center justify-center gap-3">
         <button
           onClick={() => onPrev?.()}
-          disabled={!song}
+          disabled={!group}
           className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 disabled:opacity-40"
           title="Anterior"
         >
@@ -159,7 +195,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
         </button>
         <button
           onClick={togglePlay}
-          disabled={!song}
+          disabled={!activeFile}
           className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.04] hover:shadow-violet-500/50 disabled:opacity-40 disabled:hover:scale-100"
           title={playing ? "Pausar" : "Reproducir"}
         >
@@ -167,7 +203,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
         </button>
         <button
           onClick={() => onNext?.()}
-          disabled={!song}
+          disabled={!group}
           className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 disabled:opacity-40"
           title="Siguiente"
         >

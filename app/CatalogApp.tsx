@@ -1,49 +1,52 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Song } from "@/lib/types";
+import type { SongGroup } from "@/lib/types";
+import AddVocalModal from "./components/AddVocalModal";
 import SongList from "./components/SongList";
-import Player from "./components/Player";
+import Player, { type PlaybackVariant } from "./components/Player";
 import PdfViewer from "./components/PdfViewer";
 import LyricsModal from "./components/LyricsModal";
 import MusicUploader from "./components/MusicUploader";
 import YoutubeImporter from "./components/YoutubeImporter";
 import { Disc, Search, FolderOpen } from "./components/icons";
 
-type ApiResponse = { dir: string; songs: Song[] };
+type ApiResponse = { dir: string; groups: SongGroup[] };
 
 export default function CatalogApp() {
-  const [songs, setSongs] = useState<Song[]>([]);
+  const [groups, setGroups] = useState<SongGroup[]>([]);
   const [musicDir, setMusicDir] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const [playbackVariant, setPlaybackVariant] = useState<PlaybackVariant>("instrumental");
   const [showLyricsModal, setShowLyricsModal] = useState(false);
+  const [showVocalModal, setShowVocalModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  async function refresh(selectFile?: string | null) {
+  async function refresh(preferGroupKey?: string | null) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/songs", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ApiResponse = await res.json();
-      setSongs(data.songs);
+      setGroups(data.groups);
       setMusicDir(data.dir);
 
       const preferred =
-        selectFile ??
-        (selectedFile && data.songs.some((s) => s.file === selectedFile)
-          ? selectedFile
+        preferGroupKey ??
+        (selectedGroupKey && data.groups.some((g) => g.groupKey === selectedGroupKey)
+          ? selectedGroupKey
           : null);
 
-      if (preferred && data.songs.some((s) => s.file === preferred)) {
-        setSelectedFile(preferred);
-      } else if (data.songs.length > 0) {
-        setSelectedFile(data.songs[0].file);
+      if (preferred && data.groups.some((g) => g.groupKey === preferred)) {
+        setSelectedGroupKey(preferred);
+      } else if (data.groups.length > 0) {
+        setSelectedGroupKey(data.groups[0].groupKey);
       } else {
-        setSelectedFile(null);
+        setSelectedGroupKey(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -52,36 +55,60 @@ export default function CatalogApp() {
     }
   }
 
-  async function handleAdded(file: string) {
-    await refresh(file);
+  async function handleImported(groupKey: string) {
+    await refresh(groupKey);
   }
 
-  async function handleUploaded(files: string[]) {
-    const last = files[files.length - 1];
-    await refresh(last);
+  async function handleUploaded(_files: string[]) {
+    await refresh();
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return songs;
-    return songs.filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) || s.file.toLowerCase().includes(q),
+    if (!q) return groups;
+    return groups.filter(
+      (g) =>
+        g.title.toLowerCase().includes(q) ||
+        g.groupKey.toLowerCase().includes(q) ||
+        g.instrumentalFile?.toLowerCase().includes(q) ||
+        g.vocalFile?.toLowerCase().includes(q),
     );
-  }, [songs, query]);
+  }, [groups, query]);
 
   const selected = useMemo(
-    () => songs.find((s) => s.file === selectedFile) ?? null,
-    [songs, selectedFile],
+    () => groups.find((g) => g.groupKey === selectedGroupKey) ?? null,
+    [groups, selectedGroupKey],
   );
 
-  function handleSelect(song: Song) {
-    setSelectedFile(song.file);
+  useEffect(() => {
+    if (!selected) return;
+    if (playbackVariant === "instrumental" && !selected.hasInstrumental && selected.hasVocal) {
+      setPlaybackVariant("vocal");
+    }
+    if (playbackVariant === "vocal" && !selected.hasVocal && selected.hasInstrumental) {
+      setPlaybackVariant("instrumental");
+    }
+  }, [selected, playbackVariant]);
+
+  function handleSelect(group: SongGroup) {
+    setSelectedGroupKey(group.groupKey);
+    setPlaybackVariant(group.hasInstrumental ? "instrumental" : "vocal");
+    requestAnimationFrame(() => {
+      const el = audioRef.current;
+      if (el) {
+        el.currentTime = 0;
+        void el.play().catch(() => undefined);
+      }
+    });
+  }
+
+  function handleVariantChange(variant: PlaybackVariant) {
+    setPlaybackVariant(variant);
     requestAnimationFrame(() => {
       const el = audioRef.current;
       if (el) {
@@ -106,7 +133,7 @@ export default function CatalogApp() {
                 Catálogo Musical
               </h1>
               <p className="text-sm text-white/60">
-                Importa instrumentales, reproduce y añade letras en PDF.
+                Importa canciones, alterna con/sin voz y añade letras en PDF.
               </p>
             </div>
           </div>
@@ -121,7 +148,7 @@ export default function CatalogApp() {
         <div className="grid gap-5 lg:grid-cols-[minmax(320px,420px)_1fr]">
           <section className="glass rounded-3xl p-4 md:p-5 animate-fade-up">
             <div className="space-y-5">
-              <YoutubeImporter onImported={handleAdded} />
+              <YoutubeImporter onImported={handleImported} />
               <div className="border-t border-white/10" />
               <MusicUploader onUploaded={handleUploaded} compact />
             </div>
@@ -140,7 +167,7 @@ export default function CatalogApp() {
               <span>
                 {loading
                   ? "Cargando…"
-                  : `${filtered.length} de ${songs.length} canciones`}
+                  : `${filtered.length} de ${groups.length} canciones`}
               </span>
               <button
                 onClick={() => void refresh()}
@@ -154,16 +181,20 @@ export default function CatalogApp() {
               <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
                 {error}
               </div>
-            ) : songs.length === 0 && !loading ? (
+            ) : groups.length === 0 && !loading ? (
               <EmptyState dir={musicDir} />
             ) : (
               <SongList
-                songs={filtered}
-                selectedFile={selectedFile}
+                groups={filtered}
+                selectedGroupKey={selectedGroupKey}
                 onSelect={handleSelect}
-                onRequestLyrics={(s) => {
-                  setSelectedFile(s.file);
+                onRequestLyrics={(g) => {
+                  setSelectedGroupKey(g.groupKey);
                   setShowLyricsModal(true);
+                }}
+                onRequestVocal={(g) => {
+                  setSelectedGroupKey(g.groupKey);
+                  setShowVocalModal(true);
                 }}
               />
             )}
@@ -172,30 +203,32 @@ export default function CatalogApp() {
           <section className="flex min-h-[70vh] flex-col gap-4">
             <div className="grow glass-strong rounded-3xl p-3 md:p-4 animate-fade-up">
               <PdfViewer
-                song={selected}
+                group={selected}
                 onAddLyrics={() => setShowLyricsModal(true)}
               />
             </div>
             <div className="glass-strong rounded-3xl p-4 md:p-5 animate-fade-up">
               <Player
                 ref={audioRef}
-                song={selected}
+                group={selected}
+                variant={playbackVariant}
+                onVariantChange={handleVariantChange}
                 onEnded={() => {
                   if (!selected) return;
-                  const idx = songs.findIndex((s) => s.file === selected.file);
-                  const next = songs[(idx + 1) % songs.length];
+                  const idx = groups.findIndex((g) => g.groupKey === selected.groupKey);
+                  const next = groups[(idx + 1) % groups.length];
                   if (next) handleSelect(next);
                 }}
                 onPrev={() => {
                   if (!selected) return;
-                  const idx = songs.findIndex((s) => s.file === selected.file);
-                  const prev = songs[(idx - 1 + songs.length) % songs.length];
+                  const idx = groups.findIndex((g) => g.groupKey === selected.groupKey);
+                  const prev = groups[(idx - 1 + groups.length) % groups.length];
                   if (prev) handleSelect(prev);
                 }}
                 onNext={() => {
                   if (!selected) return;
-                  const idx = songs.findIndex((s) => s.file === selected.file);
-                  const next = songs[(idx + 1) % songs.length];
+                  const idx = groups.findIndex((g) => g.groupKey === selected.groupKey);
+                  const next = groups[(idx + 1) % groups.length];
                   if (next) handleSelect(next);
                 }}
               />
@@ -204,16 +237,28 @@ export default function CatalogApp() {
         </div>
       </div>
 
-      {showLyricsModal && selected && (
+      {showLyricsModal && selected ? (
         <LyricsModal
-          song={selected}
+          group={selected}
           onClose={() => setShowLyricsModal(false)}
           onSaved={async () => {
             setShowLyricsModal(false);
-            await refresh();
+            await refresh(selected.groupKey);
           }}
         />
-      )}
+      ) : null}
+
+      {showVocalModal && selected ? (
+        <AddVocalModal
+          group={selected}
+          onClose={() => setShowVocalModal(false)}
+          onSaved={async () => {
+            setShowVocalModal(false);
+            await refresh(selected.groupKey);
+            setPlaybackVariant("vocal");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

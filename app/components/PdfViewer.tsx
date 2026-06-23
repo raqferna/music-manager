@@ -1,22 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Song } from "@/lib/types";
+import type { SongGroup } from "@/lib/types";
 import { FileText, Plus } from "./icons";
 
 type Props = {
-  song: Song | null;
+  group: SongGroup | null;
   onAddLyrics: () => void;
 };
 
-export default function PdfViewer({ song, onAddLyrics }: Props) {
+export default function PdfViewer({ group, onAddLyrics }: Props) {
   const src = useMemo(() => {
-    if (!song?.hasLyrics) return null;
-    // Cache-buster con mtime para refrescar cuando se regenere el PDF.
-    return `/api/pdf/${encodeURIComponent(song.baseName)}?v=${song.modifiedAt}`;
-  }, [song]);
+    if (!group?.hasLyrics) return null;
+    return `/api/pdf/${encodeURIComponent(group.groupKey)}?v=${group.modifiedAt}`;
+  }, [group]);
 
-  if (!song) {
+  if (!group) {
     return (
       <div className="grid h-full min-h-[40vh] place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-white/50">
         <div>
@@ -27,7 +26,7 @@ export default function PdfViewer({ song, onAddLyrics }: Props) {
     );
   }
 
-  if (!song.hasLyrics) {
+  if (!group.hasLyrics) {
     return (
       <div className="grid h-full min-h-[40vh] place-items-center rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
         <div className="max-w-sm">
@@ -37,7 +36,7 @@ export default function PdfViewer({ song, onAddLyrics }: Props) {
           </h3>
           <p className="mt-1 text-sm text-white/50">
             Busca la letra en internet, pega el texto manualmente o descarga un
-            PDF desde una URL. Se guardará automáticamente junto al audio.
+            PDF desde una URL. Se guardará para las versiones con y sin voz.
           </p>
           <button
             onClick={onAddLyrics}
@@ -56,7 +55,7 @@ export default function PdfViewer({ song, onAddLyrics }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-white/70">
           <FileText className="h-4 w-4 text-violet-300" />
-          <span className="truncate">{song.title} — letra</span>
+          <span className="truncate">{group.title} — letra</span>
         </div>
         <a
           href={src ?? "#"}
