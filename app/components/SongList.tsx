@@ -1,7 +1,7 @@
 "use client";
 
 import type { SongGroup } from "@/lib/types";
-import { FileMusic, FileText, Mic, Plus } from "./icons";
+import { FileMusic, FileText, Mic, Pencil, Plus, Trash } from "./icons";
 
 type Props = {
   groups: SongGroup[];
@@ -9,6 +9,8 @@ type Props = {
   onSelect: (group: SongGroup) => void;
   onRequestLyrics: (group: SongGroup) => void;
   onRequestVocal: (group: SongGroup) => void;
+  onRequestEdit: (group: SongGroup) => void;
+  onRequestDelete: (group: SongGroup) => void;
 };
 
 function formatSize(bytes: number) {
@@ -25,6 +27,8 @@ export default function SongList({
   onSelect,
   onRequestLyrics,
   onRequestVocal,
+  onRequestEdit,
+  onRequestDelete,
 }: Props) {
   if (groups.length === 0) {
     return (
@@ -74,6 +78,30 @@ export default function SongList({
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    title="Renombrar canción"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestEdit(group);
+                    }}
+                    className="grid h-7 w-7 place-items-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:border-violet-400/40 hover:bg-violet-400/15 hover:text-violet-100"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Eliminar canción"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestDelete(group);
+                    }}
+                    className="grid h-7 w-7 place-items-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:border-red-400/40 hover:bg-red-400/15 hover:text-red-200"
+                  >
+                    <Trash className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {group.hasLyrics ? (
                   <button
                     type="button"

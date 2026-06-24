@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SongGroup } from "@/lib/types";
 import AddVocalModal from "./components/AddVocalModal";
+import DeleteSongModal from "./components/DeleteSongModal";
+import EditSongModal from "./components/EditSongModal";
 import SongList from "./components/SongList";
 import Player, { type PlaybackVariant } from "./components/Player";
 import PdfViewer from "./components/PdfViewer";
@@ -23,6 +25,9 @@ export default function CatalogApp() {
   const [playbackVariant, setPlaybackVariant] = useState<PlaybackVariant>("instrumental");
   const [showLyricsModal, setShowLyricsModal] = useState(false);
   const [showVocalModal, setShowVocalModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [actionGroup, setActionGroup] = useState<SongGroup | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   async function refresh(preferGroupKey?: string | null) {
@@ -196,6 +201,14 @@ export default function CatalogApp() {
                   setSelectedGroupKey(g.groupKey);
                   setShowVocalModal(true);
                 }}
+                onRequestEdit={(g) => {
+                  setActionGroup(g);
+                  setShowEditModal(true);
+                }}
+                onRequestDelete={(g) => {
+                  setActionGroup(g);
+                  setShowDeleteModal(true);
+                }}
               />
             )}
           </section>
@@ -257,6 +270,39 @@ export default function CatalogApp() {
             setShowVocalModal(false);
             await refresh(selected.groupKey);
             setPlaybackVariant("vocal");
+          }}
+        />
+      ) : null}
+
+      {showEditModal && actionGroup ? (
+        <EditSongModal
+          group={actionGroup}
+          onClose={() => {
+            setShowEditModal(false);
+            setActionGroup(null);
+          }}
+          onSaved={async (newGroupKey) => {
+            setShowEditModal(false);
+            setActionGroup(null);
+            await refresh(newGroupKey);
+          }}
+        />
+      ) : null}
+
+      {showDeleteModal && actionGroup ? (
+        <DeleteSongModal
+          group={actionGroup}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setActionGroup(null);
+          }}
+          onDeleted={async (deletedGroupKey) => {
+            setShowDeleteModal(false);
+            setActionGroup(null);
+            if (selectedGroupKey === deletedGroupKey) {
+              setSelectedGroupKey(null);
+            }
+            await refresh();
           }}
         />
       ) : null}
