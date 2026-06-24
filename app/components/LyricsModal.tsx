@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LyricSearchResult, SongGroup } from "@/lib/types";
-import { Search, X } from "./icons";
+import { Search, Loader, Mic, X } from "./icons";
 
 type Props = {
   group: SongGroup;
@@ -10,7 +10,18 @@ type Props = {
   onSaved: () => void;
 };
 
-type Mode = "search" | "text" | "url";
+type Mode = "search" | "text" | "url" | "transcribe";
+
+type TranscribeJobStatus = "pending" | "running" | "completed" | "failed";
+
+type TranscribeJobPayload = {
+  jobId: string;
+  status: TranscribeJobStatus;
+  result?: { lyrics?: string } | null;
+  error?: string | null;
+};
+
+const TRANSCRIBE_POLL_MS = 3000;
 
 function formatDuration(seconds?: number) {
   if (!seconds) return null;
@@ -35,6 +46,11 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeJobId, setTranscribeJobId] = useState<string | null>(null);
+  const [transcribeStatus, setTranscribeStatus] = useState<TranscribeJobStatus | null>(null);
+  const [transcribeStartedAt, setTranscribeStartedAt] = useState<number | null>(null);
+  const [transcribeElapsedMs, setTranscribeElapsedMs] = useState(0);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -109,6 +125,91 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
     }
   }, [mode, group.title, runSearch, isEditing]);
 
+  useEffect(() => {
+    if (!transcribing || !transcribeStartedAt) return;
+    const tick = setInterval(() => {
+      setTranscribeElapsedMs(Date.now() - transcribeStartedAt);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [transcribing, transcribeStartedAt]);
+
+  useEffect(() => {
+    if (!transcribeJobId || !transcribing) return;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/lyrics/transcribe/${transcribeJobId}`, {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as TranscribeJobPayload;
+        setTranscribeStatus(data.status);
+
+        if (data.status === "completed" && data.result?.lyrics) {
+          setText(data.result.lyrics);
+          setPreviewTitle(`${group.title} (transcrita)`);
+          setTranscribing(false);
+          setTranscribeJobId(null);
+        } else if (data.status === "failed") {
+          setError(data.error ?? "La transcripción falló.");
+          setTranscribing(false);
+          setTranscribeJobId(null);
+        }
+      } catch {
+        // Reintentar en el siguiente ciclo.
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => void poll(), TRANSCRIBE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [transcribeJobId, transcribing, group.title]);
+
+  async function startTranscription() {
+    if (!group.hasVocal) {
+      setError("Esta canción no tiene versión con voz. Añádela primero o usa otra opción.");
+      return;
+    }
+
+    setTranscribing(true);
+    setTranscribeStartedAt(Date.now());
+    setTranscribeElapsedMs(0);
+    setTranscribeStatus("pending");
+    setError(null);
+    setText("");
+    setPreviewTitle("");
+
+    try {
+      const res = await fetch("/api/lyrics/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupKey: group.groupKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setTranscribeJobId(data.jobId);
+      setTranscribeStatus(data.status ?? "running");
+    } catch (err) {
+      setTranscribing(false);
+      setTranscribeJobId(null);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    }
+  }
+
+  function formatElapsed(ms: number) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, "0")}`;
+  }
+
   async function selectResult(result: LyricSearchResult) {
     if (!result.hasFullLyrics) {
       setError("Este resultado no tiene letra disponible. Prueba otro.");
@@ -169,8 +270,9 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
     !loading &&
     !loadingPreview &&
     !loadingExisting &&
+    !transcribing &&
     ((mode === "search" && selectedId !== null && text.trim().length > 0) ||
-      (mode === "text" && text.trim().length > 0) ||
+      ((mode === "text" || mode === "transcribe") && text.trim().length > 0) ||
       (mode === "url" && /^https?:\/\//i.test(url.trim())));
 
   return (
@@ -219,12 +321,13 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
               desde una URL). Pega la letra abajo para regenerar el PDF.
             </p>
           ) : null}
-          <div className="mb-4 flex gap-1 rounded-full border border-white/10 bg-white/5 p-1 text-xs sm:text-sm">
+          <div className="mb-4 flex flex-wrap gap-1 rounded-full border border-white/10 bg-white/5 p-1 text-xs sm:text-sm">
             {(
               [
                 ["search", "Buscar en internet"],
                 ["text", "Pegar texto"],
                 ["url", "PDF (URL)"],
+                ["transcribe", "De la canción"],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -358,6 +461,62 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
               placeholder={`Pega aquí la letra de "${group.title}"…\n\nCada línea aparecerá tal cual en el PDF.`}
               className="scroll-fancy h-72 w-full resize-none rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
             />
+          ) : mode === "transcribe" ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-white/70">
+                <p>
+                  Opcional: escucha la versión <strong className="text-white/90">con voz</strong>{" "}
+                  de esta canción y genera un borrador de letra con IA. Útil cuando la versión es
+                  distinta (en vivo, acústica, sesión…) y no aparece en internet.
+                </p>
+                <p className="mt-2 text-xs text-white/50">
+                  Tarda varios minutos. Revisa y corrige el texto antes de guardar.
+                </p>
+              </div>
+
+              {!group.hasVocal ? (
+                <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100/90">
+                  Esta canción no tiene pista con voz. Usa «+ Voz» en la lista o elige otra opción
+                  de letra.
+                </div>
+              ) : transcribing ? (
+                <div className="rounded-2xl border border-violet-400/30 bg-violet-400/10 p-6 text-center">
+                  <Loader className="mx-auto mb-3 h-6 w-6 animate-spin-slow text-violet-200" />
+                  <p className="text-sm text-white/90">
+                    Transcribiendo audio…{" "}
+                    {transcribeStartedAt ? formatElapsed(transcribeElapsedMs) : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-white/50">
+                    {transcribeStatus === "pending"
+                      ? "Iniciando…"
+                      : "Escuchando la pista con voz en el servidor"}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startTranscription()}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 to-cyan-400 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.01]"
+                >
+                  <Mic className="h-4 w-4" />
+                  Transcribir desde el audio
+                </button>
+              )}
+
+              {text ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-white/70">
+                    Borrador transcrito
+                    {previewTitle ? ` · ${previewTitle}` : ""}
+                  </div>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    className="scroll-fancy h-56 w-full resize-y rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white/80 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
+                  />
+                </div>
+              ) : null}
+            </div>
           ) : (
             <div className="space-y-3">
               <input

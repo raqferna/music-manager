@@ -14,7 +14,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     onnxruntime \
     gradio \
     mutagen \
-    pycryptodomex
+    pycryptodomex \
+    faster-whisper
 
 WORKDIR /app
 COPY package*.json ./
