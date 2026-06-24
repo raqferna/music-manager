@@ -7,9 +7,10 @@ import { FileText, Plus } from "./icons";
 type Props = {
   group: SongGroup | null;
   onAddLyrics: () => void;
+  onEditLyrics: () => void;
 };
 
-export default function PdfViewer({ group, onAddLyrics }: Props) {
+export default function PdfViewer({ group, onAddLyrics, onEditLyrics }: Props) {
   const src = useMemo(() => {
     if (!group?.hasLyrics) return null;
     return `/api/pdf/${encodeURIComponent(group.groupKey)}?v=${group.modifiedAt}`;
@@ -57,14 +58,23 @@ export default function PdfViewer({ group, onAddLyrics }: Props) {
           <FileText className="h-4 w-4 text-violet-300" />
           <span className="truncate">{group.title} — letra</span>
         </div>
-        <a
-          href={src ?? "#"}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10"
-        >
-          Abrir en pestaña
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onEditLyrics}
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10"
+          >
+            Editar
+          </button>
+          <a
+            href={src ?? "#"}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10"
+          >
+            Abrir en pestaña
+          </a>
+        </div>
       </div>
       <div className="grow overflow-hidden rounded-2xl border border-white/10 bg-white/95">
         {src ? (

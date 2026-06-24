@@ -75,13 +75,18 @@ export default function SongList({
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 {group.hasLyrics ? (
-                  <span
-                    title="Letra disponible"
-                    className="flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-emerald-200"
+                  <button
+                    type="button"
+                    title="Editar letra"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestLyrics(group);
+                    }}
+                    className="flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-emerald-200 transition hover:bg-emerald-400/25"
                   >
                     <FileText className="h-3 w-3" />
                     Letra
-                  </span>
+                  </button>
                 ) : (
                   <button
                     title="Añadir letra"

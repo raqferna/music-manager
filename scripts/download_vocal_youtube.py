@@ -52,14 +52,9 @@ def main() -> int:
         sys.path.insert(0, folder)
 
     try:
-        from app import _aplicar_ffmpeg_al_entorno, _comprobar_dependencias, descargar_audio_youtube
+        from app import _aplicar_ffmpeg_al_entorno, descargar_audio_youtube
     except ImportError as exc:
         emit({"ok": False, "error": f"No se pudieron cargar módulos de quitar-voz: {exc}"})
-        return 1
-
-    deps_err = _comprobar_dependencias()
-    if deps_err:
-        emit({"ok": False, "error": deps_err.replace("\n", " ")})
         return 1
 
     _aplicar_ffmpeg_al_entorno()

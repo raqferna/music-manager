@@ -1,7 +1,7 @@
 import fsp from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
+import { deleteLyricsSidecar, lyricsPdfPath } from "@/lib/lyricsStorage";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET(
     const { base } = await ctx.params;
     const baseName = safeBasename(decodeURIComponent(base));
     const dir = await getMusicDir();
-    const pdfPath = path.join(dir, `${baseName}.pdf`);
+    const pdfPath = lyricsPdfPath(dir, baseName);
 
     const data = await fsp.readFile(pdfPath);
     return new NextResponse(data, {
@@ -41,7 +41,8 @@ export async function DELETE(
     const { base } = await ctx.params;
     const baseName = safeBasename(decodeURIComponent(base));
     const dir = await getMusicDir();
-    await fsp.unlink(path.join(dir, `${baseName}.pdf`));
+    await fsp.unlink(lyricsPdfPath(dir, baseName));
+    await deleteLyricsSidecar(dir, baseName);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const status = (err as NodeJS.ErrnoException).code === "ENOENT" ? 404 : 500;

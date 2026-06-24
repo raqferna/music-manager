@@ -205,6 +205,7 @@ export default function CatalogApp() {
               <PdfViewer
                 group={selected}
                 onAddLyrics={() => setShowLyricsModal(true)}
+                onEditLyrics={() => setShowLyricsModal(true)}
               />
             </div>
             <div className="glass-strong rounded-3xl p-4 md:p-5 animate-fade-up">
