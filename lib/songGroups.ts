@@ -1,4 +1,5 @@
 import { AUDIO_EXTS } from "@/lib/audio";
+import { sortGroupsByArtist } from "@/lib/artistGroups";
 import type { SongGroup } from "@/lib/types";
 
 export const VOCAL_SUFFIX = " (con voz)";
@@ -105,8 +106,7 @@ export function buildSongGroups(
     });
   }
 
-  groups.sort((a, b) => a.title.localeCompare(b.title, "es"));
-  return groups;
+  return sortGroupsByArtist(groups);
 }
 
 export function isAudioFile(name: string): boolean {

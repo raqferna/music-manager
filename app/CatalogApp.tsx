@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { matchesSearch } from "@/lib/artistGroups";
 import type { SongGroup } from "@/lib/types";
 import AddVocalModal from "./components/AddVocalModal";
 import DeleteSongModal from "./components/DeleteSongModal";
@@ -74,15 +75,9 @@ export default function CatalogApp() {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return groups;
-    return groups.filter(
-      (g) =>
-        g.title.toLowerCase().includes(q) ||
-        g.groupKey.toLowerCase().includes(q) ||
-        g.instrumentalFile?.toLowerCase().includes(q) ||
-        g.vocalFile?.toLowerCase().includes(q),
-    );
+    return groups.filter((g) => matchesSearch(g, q));
   }, [groups, query]);
 
   const selected = useMemo(
@@ -163,7 +158,7 @@ export default function CatalogApp() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar canción…"
+                placeholder="Buscar cantante o canción…"
                 className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
               />
             </div>
