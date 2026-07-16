@@ -26,6 +26,13 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.tunnel
+.env.deploy
+
+# cloudflare tunnel (credenciales locales)
+cloudflared/*.json
+cloudflared/config.yml
+!cloudflared/config.yml.example
 
 # vercel
 .vercel
