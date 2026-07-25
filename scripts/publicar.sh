@@ -6,12 +6,13 @@
 #   npm run publicar
 #
 # Opciones:
-#   --rsync      Sincroniza archivos sin git (útil con cambios sin commit)
-#   --no-push    No hace git push (si ya subiste los cambios a GitHub)
-#   --force      Continúa aunque haya cambios locales sin commitear (solo con --rsync)
+#   --rsync        Sincroniza archivos sin git (útil con cambios sin commit)
+#   --no-push      No hace git push (si ya subiste los cambios a GitHub)
+#   --force        Continúa aunque haya cambios locales sin commitear (solo con --rsync)
+#   --solo-github  Solo sube a GitHub (si SSH al HP falla; luego en el HP: ./scripts/actualizar-en-servidor.sh)
 #
-# Configuración opcional en .env.deploy (no se sube a git):
-#   DEPLOY_REMOTE=reichel@192.168.1.219
+# Configuración opcional en .env.deploy (raíz del repo, no se sube a git):
+#   DEPLOY_REMOTE=reichel@100.75.218.102   # IP Tailscale del HP
 #   DEPLOY_BASE=/home/reichel/Pelis/music-catalog
 #   DEPLOY_BRANCH=main
 #   DEPLOY_SSH_PASS=...          # solo si no usas clave SSH; requiere sshpass
@@ -19,15 +20,16 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "$ROOT"
 
-if [[ -f .env.deploy ]]; then
+if [[ -f "${ROOT}/.env.deploy" ]]; then
   # shellcheck disable=SC1091
-  set -a && source .env.deploy && set +a
+  set -a && source "${ROOT}/.env.deploy" && set +a
 fi
 
-REMOTE="${DEPLOY_REMOTE:-reichel@192.168.1.219}"
+REMOTE="${DEPLOY_REMOTE:-reichel@100.75.218.102}"
 REMOTE_BASE="${DEPLOY_BASE:-/home/reichel/Pelis/music-catalog}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 PUBLIC_URL="${PUBLIC_URL:-https://musica.reicheleria.com}"
@@ -35,12 +37,14 @@ PUBLIC_URL="${PUBLIC_URL:-https://musica.reicheleria.com}"
 MODE="git"
 DO_PUSH=1
 FORCE=0
+SOLO_GITHUB=0
 
 for arg in "$@"; do
   case "$arg" in
     --rsync) MODE="rsync" ;;
     --no-push) DO_PUSH=0 ;;
     --force) FORCE=1 ;;
+    --solo-github) SOLO_GITHUB=1 ;;
     -h|--help)
       sed -n '2,18p' "$0"
       exit 0
@@ -82,7 +86,7 @@ check_server_reachable() {
   echo ""
   echo "No se puede conectar por SSH a ${REMOTE}" >&2
   echo "" >&2
-  echo "El despliegue solo funciona en la red local de casa." >&2
+  echo "El despliegue requiere SSH al HP (Tailscale o red local)." >&2
   echo "Comprueba:" >&2
   echo "  1. Mac conectado al Wi‑Fi de casa (no datos móviles ni otra red)" >&2
   echo "  2. El HP encendido" >&2
@@ -90,8 +94,12 @@ check_server_reachable() {
   echo "     Si no responde, la IP pudo cambiar — mírala en el router o en el propio HP" >&2
   echo "     y actualízala en .env.deploy (DEPLOY_REMOTE=reichel@NUEVA_IP)" >&2
   echo "" >&2
-  echo "Si solo quieres subir código a GitHub sin desplegar:" >&2
-  echo "  git push origin main" >&2
+  echo "Alternativa sin SSH desde el Mac:" >&2
+  echo "  1) ./scripts/publicar.sh --solo-github   (sube a GitHub)" >&2
+  echo "  2) En el HP (teclado/monitor): cd ~/Pelis/music-catalog && ./scripts/actualizar-en-servidor.sh" >&2
+  echo "" >&2
+  echo "Para arreglar SSH más adelante: IP fija en el router, openssh-server en el HP," >&2
+  echo "  o Tailscale (tailscale ip -4 en el HP → DEPLOY_REMOTE=reichel@100.x.x.x en .env.deploy)" >&2
   return 1
 }
 
@@ -115,20 +123,36 @@ fi
 
 echo "══════════════════════════════════════════"
 echo "  Publicar catálogo musical"
-echo "  Servidor: ${REMOTE}"
-echo "  Modo:     ${MODE}"
+if [[ "$SOLO_GITHUB" -eq 1 ]]; then
+  echo "  Modo:     solo GitHub (sin SSH al HP)"
+else
+  echo "  Servidor: ${REMOTE}"
+  echo "  Modo:     ${MODE}"
+fi
 echo "══════════════════════════════════════════"
 echo ""
 
-check_server_reachable || exit 1
-echo ""
+if [[ "$SOLO_GITHUB" -eq 0 ]]; then
+  check_server_reachable || exit 1
+  echo ""
+fi
 
-if [[ "$MODE" == "git" ]]; then
+if [[ "$SOLO_GITHUB" -eq 1 || "$MODE" == "git" ]]; then
   if [[ "$DO_PUSH" -eq 1 ]]; then
     echo "→ Subiendo cambios a GitHub (${BRANCH})…"
     git push origin "HEAD:${BRANCH}"
   else
     echo "→ Omitiendo git push (--no-push)"
+  fi
+
+  if [[ "$SOLO_GITHUB" -eq 1 ]]; then
+    echo ""
+    echo "══════════════════════════════════════════"
+    echo "  Código en GitHub. Falta el paso en el HP:"
+    echo "  cd ~/Pelis/music-catalog"
+    echo "  ./scripts/actualizar-en-servidor.sh"
+    echo "══════════════════════════════════════════"
+    exit 0
   fi
 
   echo "→ Actualizando código en el servidor (git pull)…"
@@ -151,6 +175,18 @@ else
     --exclude .env.local \
     --exclude .env.deploy \
     "${ROOT}/" "${REMOTE}:${REMOTE_BASE}/"
+fi
+
+# APK Android (gitignored): se sube si existe en public/android/
+if [[ -f "${ROOT}/public/android/catalogo-offline.apk" ]]; then
+  echo "→ Subiendo APK Android…"
+  ssh_cmd "${REMOTE}" "mkdir -p '${REMOTE_BASE}/public/android'"
+  rsync_cmd -avz \
+    "${ROOT}/public/android/catalogo-offline.apk" \
+    "${ROOT}/public/android/latest.json" \
+    "${REMOTE}:${REMOTE_BASE}/public/android/"
+else
+  echo "→ Sin APK local (opcional: cd ../music-lyrics-android && ./scripts/publish-apk.sh)"
 fi
 
 echo "→ Reconstruyendo Docker en el servidor (puede tardar varios minutos)…"
@@ -184,5 +220,6 @@ echo ""
 echo "══════════════════════════════════════════"
 echo "  Despliegue completado"
 echo "  Web: ${PUBLIC_URL}"
+echo "  App Android: ${PUBLIC_URL}/android"
 echo "  Recarga con Ctrl+Shift+R (o Ctrl+F5)"
 echo "══════════════════════════════════════════"
