@@ -1,0 +1,14 @@
+# Túnel Cloudflare con nombre (URL fija + compatible con Access).
+# Uso: docker compose -f docker-compose.tunnel.yml --env-file .env.tunnel up -d
+#
+# Antes: crea el túnel en Cloudflare Zero Trust y copia el token a .env.tunnel
+# Guía: docs/CLOUDFLARE-ACCESS.md
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: tunel-fijo-catalogo
+    restart: unless-stopped
+    # host: el conector alcanza localhost:5001 donde publica app-catalogo
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}

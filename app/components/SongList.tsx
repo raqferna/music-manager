@@ -11,6 +11,7 @@ type Props = {
   onSelect: (group: SongGroup) => void;
   onRequestLyrics: (group: SongGroup) => void;
   onRequestVocal: (group: SongGroup) => void;
+  onRequestInstrumental: (group: SongGroup) => void;
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
 };
@@ -29,6 +30,7 @@ function SongRow({
   onSelect,
   onRequestLyrics,
   onRequestVocal,
+  onRequestInstrumental,
   onRequestEdit,
   onRequestDelete,
 }: {
@@ -37,6 +39,7 @@ function SongRow({
   onSelect: (group: SongGroup) => void;
   onRequestLyrics: (group: SongGroup) => void;
   onRequestVocal: (group: SongGroup) => void;
+  onRequestInstrumental: (group: SongGroup) => void;
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
 }) {
@@ -80,7 +83,7 @@ function SongRow({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              title="Renombrar canción"
+                    title="Gestionar canción (renombrar, añadir con/sin voz)"
               onClick={(e) => {
                 e.stopPropagation();
                 onRequestEdit(group);
@@ -140,6 +143,19 @@ function SongRow({
               + Voz
             </button>
           ) : null}
+          {!group.hasInstrumental && group.hasVocal ? (
+            <button
+              title="Generar versión sin voz desde el audio con voz"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestInstrumental(group);
+              }}
+              className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-violet-400/40 hover:bg-violet-400/15 hover:text-violet-100"
+            >
+              <FileMusic className="h-3 w-3" />
+              + Sin voz
+            </button>
+          ) : null}
         </div>
       </div>
     </li>
@@ -152,6 +168,7 @@ export default function SongList({
   onSelect,
   onRequestLyrics,
   onRequestVocal,
+  onRequestInstrumental,
   onRequestEdit,
   onRequestDelete,
 }: Props) {
@@ -187,6 +204,7 @@ export default function SongList({
                 onSelect={onSelect}
                 onRequestLyrics={onRequestLyrics}
                 onRequestVocal={onRequestVocal}
+                onRequestInstrumental={onRequestInstrumental}
                 onRequestEdit={onRequestEdit}
                 onRequestDelete={onRequestDelete}
               />

@@ -40,8 +40,9 @@ export type YoutubeImportResult = {
   artist: string;
   title: string;
   file: string;
-  instrumentalFile: string;
+  instrumentalFile: string | null;
   vocalFile: string;
+  partial?: boolean;
   lyrics: string | null;
   lyricsSource: string | null;
   hasLyrics: boolean;

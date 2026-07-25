@@ -62,10 +62,37 @@ ssh_cmd() {
 
 rsync_cmd() {
   if [[ -n "${DEPLOY_SSH_PASS:-}" ]] && command -v sshpass >/dev/null 2>&1; then
-    sshpass -p "$DEPLOY_SSH_PASS" rsync -e "ssh -o StrictHostKeyChecking=no" "$@"
+    sshpass -p "$DEPLOY_SSH_PASS" rsync -e "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_TIMEOUT}" "$@"
   else
-    rsync -e "ssh -o StrictHostKeyChecking=no" "$@"
+    rsync -e "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_TIMEOUT}" "$@"
   fi
+}
+
+REMOTE_HOST="${REMOTE#*@}"
+REMOTE_HOST="${REMOTE_HOST%%:*}"
+SSH_TIMEOUT="${SSH_TIMEOUT:-10}"
+
+check_server_reachable() {
+  echo "→ Comprobando conexión con el HP (${REMOTE_HOST})…"
+  if ssh_cmd -o ConnectTimeout="${SSH_TIMEOUT}" -o BatchMode=no "${REMOTE}" "echo ok" >/dev/null 2>&1; then
+    echo "   Conexión OK"
+    return 0
+  fi
+
+  echo ""
+  echo "No se puede conectar por SSH a ${REMOTE}" >&2
+  echo "" >&2
+  echo "El despliegue solo funciona en la red local de casa." >&2
+  echo "Comprueba:" >&2
+  echo "  1. Mac conectado al Wi‑Fi de casa (no datos móviles ni otra red)" >&2
+  echo "  2. El HP encendido" >&2
+  echo "  3. La IP del HP: ping ${REMOTE_HOST}" >&2
+  echo "     Si no responde, la IP pudo cambiar — mírala en el router o en el propio HP" >&2
+  echo "     y actualízala en .env.deploy (DEPLOY_REMOTE=reichel@NUEVA_IP)" >&2
+  echo "" >&2
+  echo "Si solo quieres subir código a GitHub sin desplegar:" >&2
+  echo "  git push origin main" >&2
+  return 1
 }
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -91,6 +118,9 @@ echo "  Publicar catálogo musical"
 echo "  Servidor: ${REMOTE}"
 echo "  Modo:     ${MODE}"
 echo "══════════════════════════════════════════"
+echo ""
+
+check_server_reachable || exit 1
 echo ""
 
 if [[ "$MODE" == "git" ]]; then

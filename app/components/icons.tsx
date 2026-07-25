@@ -184,3 +184,13 @@ export function Loader(props: IconProps) {
     </svg>
   );
 }
+
+export function Smartphone(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  );
+}
+

@@ -157,8 +157,28 @@ def main() -> int:
 
         path_instrumental, sep_msg = _procesar_archivo(path_audio)
         if not path_instrumental:
-            emit({"ok": False, "error": sep_msg.replace("\n", " ")})
-            return 1
+            emit(
+                {
+                    "ok": True,
+                    "partial": True,
+                    "groupKey": group_key,
+                    "baseName": group_key,
+                    "artist": artist,
+                    "title": title,
+                    "file": vocal_dest.name,
+                    "vocalFile": vocal_dest.name,
+                    "instrumentalFile": None,
+                    "lyrics": None,
+                    "lyricsSource": None,
+                    "hasLyrics": False,
+                    "message": (
+                        "Se guardó la versión con voz, pero falló la separación sin voz. "
+                        "Puedes generarla desde el lápiz (Gestionar canción)."
+                    ),
+                    "separationError": sep_msg.replace("\n", " "),
+                }
+            )
+            return 0
 
         inst_dest = output_dir / f"{group_key} (instrumental).wav"
         shutil.move(path_instrumental, inst_dest)

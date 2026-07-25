@@ -44,3 +44,6 @@ next-env.d.ts.bak
 # music & generated files (no commitear contenidos del usuario)
 /music/*
 !/music/.gitkeep
+
+# APK Android (se publica con scripts/publish-apk desde music-lyrics-android)
+/public/android/*.apk

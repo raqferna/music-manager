@@ -15,3 +15,13 @@ docker compose up -d --force-recreate
 
 echo "Listo. App en http://localhost:5001"
 docker compose ps
+
+if docker ps --format '{{.Names}}' | grep -q '^tunel-fijo-catalogo$'; then
+  echo ""
+  echo "Túnel activo (no reiniciado). URL fija sin cambios."
+  if [ -f .env.tunnel ]; then
+    # shellcheck disable=SC1091
+    set -a && source .env.tunnel && set +a
+    [ -n "${PUBLIC_HOSTNAME:-}" ] && echo "  https://${PUBLIC_HOSTNAME}"
+  fi
+fi

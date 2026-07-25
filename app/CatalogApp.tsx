@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch } from "@/lib/artistGroups";
 import type { SongGroup } from "@/lib/types";
 import AddVocalModal from "./components/AddVocalModal";
+import AddInstrumentalModal from "./components/AddInstrumentalModal";
 import DeleteSongModal from "./components/DeleteSongModal";
 import EditSongModal from "./components/EditSongModal";
 import SongList from "./components/SongList";
@@ -12,7 +13,7 @@ import PdfViewer from "./components/PdfViewer";
 import LyricsModal from "./components/LyricsModal";
 import MusicUploader from "./components/MusicUploader";
 import YoutubeImporter from "./components/YoutubeImporter";
-import { Disc, Search, FolderOpen } from "./components/icons";
+import { Disc, Search, FolderOpen, Smartphone } from "./components/icons";
 
 type ApiResponse = { dir: string; groups: SongGroup[] };
 
@@ -26,12 +27,13 @@ export default function CatalogApp() {
   const [playbackVariant, setPlaybackVariant] = useState<PlaybackVariant>("instrumental");
   const [showLyricsModal, setShowLyricsModal] = useState(false);
   const [showVocalModal, setShowVocalModal] = useState(false);
+  const [showInstrumentalModal, setShowInstrumentalModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [actionGroup, setActionGroup] = useState<SongGroup | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  async function refresh(preferGroupKey?: string | null) {
+  async function refresh(preferGroupKey?: string | null): Promise<SongGroup[]> {
     setLoading(true);
     setError(null);
     try {
@@ -54,8 +56,11 @@ export default function CatalogApp() {
       } else {
         setSelectedGroupKey(null);
       }
+
+      return data.groups;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
+      return [];
     } finally {
       setLoading(false);
     }
@@ -137,7 +142,14 @@ export default function CatalogApp() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-white/60">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+            <a
+              href="/android"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              <Smartphone className="h-4 w-4 text-violet-300" />
+              App Android
+            </a>
             <FolderOpen className="h-4 w-4 text-violet-300" />
             <code className="rounded-lg bg-white/5 px-2 py-1 text-white/80">
               {musicDir || "Cargando…"}
@@ -195,6 +207,10 @@ export default function CatalogApp() {
                 onRequestVocal={(g) => {
                   setSelectedGroupKey(g.groupKey);
                   setShowVocalModal(true);
+                }}
+                onRequestInstrumental={(g) => {
+                  setSelectedGroupKey(g.groupKey);
+                  setShowInstrumentalModal(true);
                 }}
                 onRequestEdit={(g) => {
                   setActionGroup(g);
@@ -269,6 +285,18 @@ export default function CatalogApp() {
         />
       ) : null}
 
+      {showInstrumentalModal && selected ? (
+        <AddInstrumentalModal
+          group={selected}
+          onClose={() => setShowInstrumentalModal(false)}
+          onSaved={async () => {
+            setShowInstrumentalModal(false);
+            await refresh(selected.groupKey);
+            setPlaybackVariant("instrumental");
+          }}
+        />
+      ) : null}
+
       {showEditModal && actionGroup ? (
         <EditSongModal
           group={actionGroup}
@@ -276,10 +304,15 @@ export default function CatalogApp() {
             setShowEditModal(false);
             setActionGroup(null);
           }}
-          onSaved={async (newGroupKey) => {
+          onSaved={async (groupKey) => {
             setShowEditModal(false);
             setActionGroup(null);
-            await refresh(newGroupKey);
+            await refresh(groupKey);
+          }}
+          onUpdated={async (groupKey) => {
+            const updated = await refresh(groupKey);
+            const next = updated.find((g) => g.groupKey === groupKey) ?? null;
+            if (next) setActionGroup(next);
           }}
         />
       ) : null}
