@@ -32,7 +32,11 @@ export async function GET(
 
     const ext = path.extname(fileName).toLowerCase();
     const contentType = MIME[ext] ?? "application/octet-stream";
-    const range = req.headers.get("range");
+    const asDownload = req.nextUrl.searchParams.get("download") === "1";
+    const disposition = asDownload
+      ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
+      : null;
+    const range = asDownload ? null : req.headers.get("range");
 
     if (range) {
       // Soporte de Range para que el reproductor pueda hacer seek.
@@ -84,14 +88,18 @@ export async function GET(
     }
 
     const data = await fsp.readFile(filePath);
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Length": String(stat.size),
+      "Accept-Ranges": asDownload ? "none" : "bytes",
+      "Cache-Control": "no-store",
+    };
+    if (disposition) {
+      headers["Content-Disposition"] = disposition;
+    }
     return new NextResponse(data, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(stat.size),
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-store",
-      },
+      headers,
     });
   } catch (err) {
     console.error("/api/audio error", err);

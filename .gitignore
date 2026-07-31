@@ -47,3 +47,6 @@ next-env.d.ts.bak
 
 # APK Android (se publica con scripts/publish-apk desde music-lyrics-android)
 /public/android/*.apk
+
+# APK publicado para descarga web
+/public/releases/*.apk

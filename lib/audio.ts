@@ -37,3 +37,14 @@ export function isYoutubeUrl(url: string): boolean {
   if (!trimmed) return false;
   return YOUTUBE_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
+
+/** Dispara la descarga del archivo de audio al navegador. */
+export function downloadAudioFile(fileName: string) {
+  const a = document.createElement("a");
+  a.href = `/api/audio/${encodeURIComponent(fileName)}?download=1`;
+  a.download = fileName;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

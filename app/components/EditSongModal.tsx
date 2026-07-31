@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { isYoutubeUrl } from "@/lib/audio";
+import { downloadAudioFile, isYoutubeUrl } from "@/lib/audio";
 import type { SongGroup } from "@/lib/types";
-import { Link, Loader, Mic, X } from "./icons";
+import { Download, Link, Loader, Mic, X } from "./icons";
 
 type Props = {
   group: SongGroup;
@@ -166,8 +166,21 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
                 {group.hasVocal ? "Sí" : "Falta"}
               </span>
             </div>
-            {group.hasVocal ? (
-              <p className="mt-1 truncate text-xs text-white/40">{group.vocalFile}</p>
+            {group.hasVocal && group.vocalFile ? (
+              <div className="mt-2 flex items-center gap-2">
+                <p className="min-w-0 grow truncate text-xs text-white/40">
+                  {group.vocalFile}
+                </p>
+                <button
+                  type="button"
+                  title="Descargar con voz"
+                  onClick={() => downloadAudioFile(group.vocalFile!)}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-400/25 bg-violet-400/10 px-2.5 py-1 text-[11px] text-violet-100 transition hover:bg-violet-400/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar
+                </button>
+              </div>
             ) : (
               <form onSubmit={(e) => void handleAddVocal(e)} className="mt-3 space-y-2">
                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-white/45">
@@ -216,8 +229,21 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
                 {group.hasInstrumental ? "Sí" : "Falta"}
               </span>
             </div>
-            {group.hasInstrumental ? (
-              <p className="mt-1 truncate text-xs text-white/40">{group.instrumentalFile}</p>
+            {group.hasInstrumental && group.instrumentalFile ? (
+              <div className="mt-2 flex items-center gap-2">
+                <p className="min-w-0 grow truncate text-xs text-white/40">
+                  {group.instrumentalFile}
+                </p>
+                <button
+                  type="button"
+                  title="Descargar sin voz"
+                  onClick={() => downloadAudioFile(group.instrumentalFile!)}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-400/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar
+                </button>
+              </div>
             ) : group.hasVocal ? (
               <div className="mt-3 space-y-2">
                 <p className="text-xs text-white/50">

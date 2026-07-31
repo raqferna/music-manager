@@ -1,7 +1,8 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 
 type LatestMeta = {
   appName: string;
@@ -12,6 +13,15 @@ type LatestMeta = {
   builtAt: string;
 };
 
+const FALLBACK: LatestMeta = {
+  appName: "Catálogo Offline",
+  versionName: "0.1.0",
+  versionCode: 1,
+  downloadPath: "/releases/catalogo-offline.apk",
+  sizeBytes: 0,
+  builtAt: "",
+};
+
 function formatSize(bytes: number): string {
   if (!bytes) return "—";
   const mb = bytes / (1024 * 1024);
@@ -19,6 +29,7 @@ function formatSize(bytes: number): string {
 }
 
 function formatDate(iso: string): string {
+  if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("es-ES");
   } catch {
@@ -26,21 +37,27 @@ function formatDate(iso: string): string {
   }
 }
 
-export default function AndroidDownloadPage() {
-  const [meta, setMeta] = useState<LatestMeta | null>(null);
-  const [error, setError] = useState<string | null>(null);
+async function loadMeta(): Promise<LatestMeta> {
+  const candidates = [
+    path.join(process.cwd(), "public", "releases", "latest.json"),
+    path.join(process.cwd(), "public", "android", "latest.json"),
+  ];
 
-  useEffect(() => {
-    fetch("/android/latest.json", { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("No hay APK publicado todavía");
-        return res.json() as Promise<LatestMeta>;
-      })
-      .then(setMeta)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Error al cargar");
-      });
-  }, []);
+  for (const file of candidates) {
+    try {
+      const raw = await readFile(file, "utf8");
+      const parsed = JSON.parse(raw) as LatestMeta;
+      if (parsed?.downloadPath) return parsed;
+    } catch {
+      // probar siguiente ruta
+    }
+  }
+
+  return FALLBACK;
+}
+
+export default async function AndroidDownloadPage() {
+  const meta = await loadMeta();
 
   return (
     <main className="min-h-screen px-4 py-10 md:px-8">
@@ -61,33 +78,28 @@ export default function AndroidDownloadPage() {
         </div>
 
         <section className="glass rounded-3xl p-5 space-y-4">
-          {error && !meta ? (
-            <p className="text-sm text-rose-300">{error}</p>
-          ) : !meta ? (
-            <p className="text-sm text-white/60">Cargando…</p>
-          ) : (
-            <>
-              <div>
-                <p className="text-lg font-medium">{meta.appName}</p>
-                <p className="text-sm text-white/60">
-                  v{meta.versionName} · {formatSize(meta.sizeBytes)} ·{" "}
-                  {formatDate(meta.builtAt)}
-                </p>
-              </div>
-              <a
-                href={meta.downloadPath}
-                download
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-violet-500/90 px-4 py-3 text-sm font-medium text-white hover:bg-violet-400"
-              >
-                Descargar APK
-              </a>
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-white/70">
-                <li>Abre el APK e instálalo (permite “apps desconocidas” si Android lo pide).</li>
-                <li>En la app → Ajustes → pega la URL de este servidor.</li>
-                <li>Pulsa sincronizar (nube) para bajar el catálogo.</li>
-              </ol>
-            </>
-          )}
+          <div>
+            <p className="text-lg font-medium">{meta.appName}</p>
+            <p className="text-sm text-white/60">
+              v{meta.versionName} · {formatSize(meta.sizeBytes)} ·{" "}
+              {formatDate(meta.builtAt)}
+            </p>
+          </div>
+          <a
+            href={meta.downloadPath}
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-violet-500/90 px-4 py-3 text-sm font-medium text-white hover:bg-violet-400"
+          >
+            Descargar APK
+          </a>
+          <p className="text-xs text-white/45 break-all">{meta.downloadPath}</p>
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-white/70">
+            <li>
+              Abre el APK e instálalo (permite “apps desconocidas” si Android lo
+              pide).
+            </li>
+            <li>En la app → Ajustes → pega la URL de este servidor.</li>
+            <li>Pulsa sincronizar (nube) para bajar el catálogo.</li>
+          </ol>
         </section>
       </div>
     </main>

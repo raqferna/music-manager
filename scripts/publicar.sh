@@ -177,14 +177,19 @@ else
     "${ROOT}/" "${REMOTE}:${REMOTE_BASE}/"
 fi
 
-# APK Android (gitignored): se sube si existe en public/android/
-if [[ -f "${ROOT}/public/android/catalogo-offline.apk" ]]; then
+# APK Android (gitignored): se sube si existe en public/releases/
+if [[ -f "${ROOT}/public/releases/catalogo-offline.apk" ]]; then
   echo "→ Subiendo APK Android…"
-  ssh_cmd "${REMOTE}" "mkdir -p '${REMOTE_BASE}/public/android'"
+  ssh_cmd "${REMOTE}" "mkdir -p '${REMOTE_BASE}/public/releases' '${REMOTE_BASE}/public/android'"
   rsync_cmd -avz \
-    "${ROOT}/public/android/catalogo-offline.apk" \
-    "${ROOT}/public/android/latest.json" \
-    "${REMOTE}:${REMOTE_BASE}/public/android/"
+    "${ROOT}/public/releases/catalogo-offline.apk" \
+    "${ROOT}/public/releases/latest.json" \
+    "${REMOTE}:${REMOTE_BASE}/public/releases/"
+  if [[ -f "${ROOT}/public/android/latest.json" ]]; then
+    rsync_cmd -avz \
+      "${ROOT}/public/android/latest.json" \
+      "${REMOTE}:${REMOTE_BASE}/public/android/"
+  fi
 else
   echo "→ Sin APK local (opcional: cd ../music-lyrics-android && ./scripts/publish-apk.sh)"
 fi
