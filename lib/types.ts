@@ -1,3 +1,5 @@
+import type { StemId } from "@/lib/stems";
+
 export type Song = {
   /** @deprecated Usar SongGroup en la lista del catálogo. */
   file: string;
@@ -17,6 +19,9 @@ export type SongGroup = {
   vocalFile: string | null;
   hasInstrumental: boolean;
   hasVocal: boolean;
+  /** Stems individuales (batería, bajo, guitarra, piano, etc.). */
+  stemFiles: Partial<Record<StemId, string>>;
+  hasStems: boolean;
   hasLyrics: boolean;
   modifiedAt: number;
   size: number;

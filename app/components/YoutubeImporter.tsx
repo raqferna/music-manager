@@ -12,7 +12,7 @@ type JobStatus = "queued" | "pending" | "running" | "completed" | "failed";
 
 type JobPayload = {
   jobId: string;
-  type?: "youtube-import" | "add-instrumental";
+  type?: "youtube-import" | "add-instrumental" | "separate-stems";
   url?: string | null;
   groupKey?: string | null;
   label?: string;
@@ -71,12 +71,16 @@ function truncateUrl(url: string, max = 48): string {
 
 function jobDisplayLabel(job: JobPayload): string {
   if (job.label) return truncateUrl(job.label, 56);
-  if (job.type === "add-instrumental") return job.groupKey ?? "Sin voz";
+  if (job.type === "add-instrumental" || job.type === "separate-stems") {
+    return job.groupKey ?? (job.type === "separate-stems" ? "Instrumentos" : "Sin voz");
+  }
   return truncateUrl(job.url ?? "");
 }
 
 function jobTypeHint(job: JobPayload): string {
-  return job.type === "add-instrumental" ? "Generar sin voz" : "Importar YouTube";
+  if (job.type === "add-instrumental") return "Generar sin voz";
+  if (job.type === "separate-stems") return "Separar instrumentos";
+  return "Importar YouTube";
 }
 
 function parseUrls(text: string): string[] {
@@ -121,11 +125,14 @@ export default function YoutubeImporter({ onImported }: Props) {
     if (handledCompletedRef.current.has(job.jobId)) return;
     handledCompletedRef.current.add(job.jobId);
 
-    const file = job.result?.file ?? job.result?.vocalFile;
-    if (!file) return;
-
     const groupKey =
-      job.result?.groupKey || job.groupKey || job.result?.baseName || file;
+      job.result?.groupKey ||
+      job.groupKey ||
+      job.result?.baseName ||
+      job.result?.file ||
+      job.result?.vocalFile;
+    if (!groupKey) return;
+
     await onImportedRef.current(groupKey);
   }, []);
 

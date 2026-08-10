@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch } from "@/lib/artistGroups";
 import type { SongGroup } from "@/lib/types";
+import AddStemsModal from "./components/AddStemsModal";
 import AddVocalModal from "./components/AddVocalModal";
 import AddInstrumentalModal from "./components/AddInstrumentalModal";
 import DeleteSongModal from "./components/DeleteSongModal";
@@ -28,6 +29,7 @@ export default function CatalogApp() {
   const [showLyricsModal, setShowLyricsModal] = useState(false);
   const [showVocalModal, setShowVocalModal] = useState(false);
   const [showInstrumentalModal, setShowInstrumentalModal] = useState(false);
+  const [showStemsModal, setShowStemsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [actionGroup, setActionGroup] = useState<SongGroup | null>(null);
@@ -212,6 +214,10 @@ export default function CatalogApp() {
                   setSelectedGroupKey(g.groupKey);
                   setShowInstrumentalModal(true);
                 }}
+                onRequestStems={(g) => {
+                  setSelectedGroupKey(g.groupKey);
+                  setShowStemsModal(true);
+                }}
                 onRequestEdit={(g) => {
                   setActionGroup(g);
                   setShowEditModal(true);
@@ -293,6 +299,16 @@ export default function CatalogApp() {
             setShowInstrumentalModal(false);
             await refresh(selected.groupKey);
             setPlaybackVariant("instrumental");
+          }}
+        />
+      ) : null}
+
+      {showStemsModal && selected ? (
+        <AddStemsModal
+          group={selected}
+          onClose={() => setShowStemsModal(false)}
+          onSaved={async () => {
+            await refresh(selected.groupKey);
           }}
         />
       ) : null}

@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { generateInstrumentalFromVocal, type InstrumentalGenerateResult } from "@/lib/instrumentalGenerate";
+import { generateStemsFromSource, type StemGenerateResult } from "@/lib/stemGenerate";
 import { importSongFromYoutube, type YoutubeImportResult } from "@/lib/youtubeImport";
 
-export type ProcessingJobType = "youtube-import" | "add-instrumental";
+export type ProcessingJobType = "youtube-import" | "add-instrumental" | "separate-stems";
 
 export type YoutubeJobStatus = "queued" | "pending" | "running" | "completed" | "failed";
 
-export type ProcessingJobResult = YoutubeImportResult | InstrumentalGenerateResult;
+export type ProcessingJobResult = YoutubeImportResult | InstrumentalGenerateResult | StemGenerateResult;
 
 export type YoutubeJob = {
   id: string;
@@ -135,6 +136,10 @@ async function executeJob(job: YoutubeJob, musicDir: string): Promise<Processing
     if (!job.groupKey) throw new Error("Falta groupKey");
     return generateInstrumentalFromVocal(musicDir, job.groupKey);
   }
+  if (job.type === "separate-stems") {
+    if (!job.groupKey) throw new Error("Falta groupKey");
+    return generateStemsFromSource(musicDir, job.groupKey);
+  }
   if (!job.url) throw new Error("Falta URL");
   return importSongFromYoutube(job.url, musicDir);
 }
@@ -240,6 +245,29 @@ export function enqueueInstrumentalJob(
   return enqueueJob(job, musicDir);
 }
 
+export function enqueueStemSeparationJob(
+  groupKey: string,
+  musicDir: string,
+): { job: YoutubeJob; duplicate: boolean } {
+  pruneOldJobs();
+
+  const duplicate = findDuplicateJob("separate-stems", groupKey);
+  if (duplicate) {
+    return { job: duplicate, duplicate: true };
+  }
+
+  const job: YoutubeJob = {
+    id: randomUUID(),
+    type: "separate-stems",
+    groupKey,
+    status: "queued",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  return enqueueJob(job, musicDir);
+}
+
 /** @deprecated Usar enqueueYoutubeImportJob */
 export function startYoutubeImportJob(url: string, musicDir: string): YoutubeJob {
   return enqueueYoutubeImportJob(url, musicDir).job;
@@ -248,6 +276,9 @@ export function startYoutubeImportJob(url: string, musicDir: string): YoutubeJob
 export function jobLabel(job: YoutubeJob): string {
   if (job.type === "add-instrumental") {
     return job.groupKey ?? "Sin voz";
+  }
+  if (job.type === "separate-stems") {
+    return job.groupKey ?? "Instrumentos";
   }
   return job.url ?? "";
 }

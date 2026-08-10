@@ -18,10 +18,11 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
   const [loadingRename, setLoadingRename] = useState(false);
   const [loadingVocal, setLoadingVocal] = useState(false);
   const [loadingInstrumental, setLoadingInstrumental] = useState(false);
+  const [loadingStems, setLoadingStems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const busy = loadingRename || loadingVocal || loadingInstrumental;
+  const busy = loadingRename || loadingVocal || loadingInstrumental || loadingStems;
   const activeGroupKey = group.groupKey;
 
   async function handleRename(e: React.FormEvent) {
@@ -106,6 +107,30 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoadingInstrumental(false);
+    }
+  }
+
+  async function handleSeparateStems() {
+    setLoadingStems(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/songs/separate-stems", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupKey: activeGroupKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setMessage(data.message ?? "Encolada para separar instrumentos.");
+      window.dispatchEvent(new CustomEvent("processing-queue-changed"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setLoadingStems(false);
     }
   }
 
@@ -269,6 +294,53 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
             ) : (
               <p className="mt-2 text-xs text-white/45">
                 Primero necesitas la versión con voz para poder generar la instrumental.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-white/85">Instrumentos separados</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                  group.hasStems
+                    ? "bg-amber-400/15 text-amber-200"
+                    : "bg-white/10 text-white/45"
+                }`}
+              >
+                {group.hasStems ? "Sí" : "Falta"}
+              </span>
+            </div>
+            {group.hasStems ? (
+              <p className="mt-2 text-xs text-white/45">
+                Usa el botón «Instrumentos» en el reproductor para silenciar batería, bajo,
+                guitarra, piano, voz u otros.
+              </p>
+            ) : group.hasVocal || group.hasInstrumental ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-white/50">
+                  Separa la canción en pistas individuales para poder quitar instrumentos concretos
+                  durante la reproducción. Tarda varios minutos.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleSeparateStems()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-400 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {loadingStems ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin-slow" />
+                      Encolando…
+                    </>
+                  ) : (
+                    "Separar instrumentos"
+                  )}
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-white/45">
+                Primero necesitas audio para esta canción.
               </p>
             )}
           </div>

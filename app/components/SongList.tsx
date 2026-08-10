@@ -12,6 +12,7 @@ type Props = {
   onRequestLyrics: (group: SongGroup) => void;
   onRequestVocal: (group: SongGroup) => void;
   onRequestInstrumental: (group: SongGroup) => void;
+  onRequestStems: (group: SongGroup) => void;
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
 };
@@ -31,6 +32,7 @@ function SongRow({
   onRequestLyrics,
   onRequestVocal,
   onRequestInstrumental,
+  onRequestStems,
   onRequestEdit,
   onRequestDelete,
 }: {
@@ -40,6 +42,7 @@ function SongRow({
   onRequestLyrics: (group: SongGroup) => void;
   onRequestVocal: (group: SongGroup) => void;
   onRequestInstrumental: (group: SongGroup) => void;
+  onRequestStems: (group: SongGroup) => void;
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
 }) {
@@ -74,6 +77,11 @@ function SongRow({
             {group.hasVocal ? (
               <span className="rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-200">
                 Con voz
+              </span>
+            ) : null}
+            {group.hasStems ? (
+              <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-amber-200">
+                Instrumentos
               </span>
             ) : null}
             <span className="text-white/35 normal-case">{formatSize(group.size)}</span>
@@ -156,6 +164,19 @@ function SongRow({
               + Sin voz
             </button>
           ) : null}
+          {!group.hasStems && (group.hasVocal || group.hasInstrumental) ? (
+            <button
+              title="Separar batería, bajo, guitarra, piano, etc."
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestStems(group);
+              }}
+              className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-amber-400/40 hover:bg-amber-400/15 hover:text-amber-100"
+            >
+              <FileMusic className="h-3 w-3" />
+              + Stems
+            </button>
+          ) : null}
         </div>
       </div>
     </li>
@@ -169,6 +190,7 @@ export default function SongList({
   onRequestLyrics,
   onRequestVocal,
   onRequestInstrumental,
+  onRequestStems,
   onRequestEdit,
   onRequestDelete,
 }: Props) {
@@ -205,6 +227,7 @@ export default function SongList({
                 onRequestLyrics={onRequestLyrics}
                 onRequestVocal={onRequestVocal}
                 onRequestInstrumental={onRequestInstrumental}
+                onRequestStems={onRequestStems}
                 onRequestEdit={onRequestEdit}
                 onRequestDelete={onRequestDelete}
               />
