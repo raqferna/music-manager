@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { generateInstrumentalFromVocal, type InstrumentalGenerateResult } from "@/lib/instrumentalGenerate";
+import { PREEMPTED_ERROR } from "@/lib/pythonJob";
 import { generateStemsFromSource, type StemGenerateResult } from "@/lib/stemGenerate";
 import { importSongFromYoutube, type YoutubeImportResult } from "@/lib/youtubeImport";
 
@@ -30,6 +31,8 @@ declare global {
   var __youtubeImportActiveJobId: string | undefined;
   // eslint-disable-next-line no-var
   var __youtubeImportQueue: string[] | undefined;
+  // eslint-disable-next-line no-var
+  var __youtubeImportActiveAbort: AbortController | undefined;
 }
 
 const JOB_TTL_MS = 2 * 60 * 60 * 1000;
@@ -90,9 +93,12 @@ export function getActiveYoutubeJob(): YoutubeJob | null {
 
 export function getQueuedYoutubeJobs(): YoutubeJob[] {
   pruneOldJobs();
-  return queue()
+  const queued = queue()
     .map((id) => jobs().get(id))
     .filter((job): job is YoutubeJob => job !== undefined && job.status === "queued");
+  const vocal = queued.filter(isVocalJob);
+  const stems = queued.filter((job) => !isVocalJob(job));
+  return [...vocal, ...stems];
 }
 
 export function getRecentYoutubeJobs(): YoutubeJob[] {
@@ -131,20 +137,30 @@ function findDuplicateJob(
   return null;
 }
 
-async function executeJob(job: YoutubeJob, musicDir: string): Promise<ProcessingJobResult> {
+function isVocalJob(job: YoutubeJob): boolean {
+  return job.type !== "separate-stems";
+}
+
+async function executeJob(
+  job: YoutubeJob,
+  musicDir: string,
+  signal: AbortSignal,
+): Promise<ProcessingJobResult> {
   if (job.type === "add-instrumental") {
     if (!job.groupKey) throw new Error("Falta groupKey");
-    return generateInstrumentalFromVocal(musicDir, job.groupKey);
+    return generateInstrumentalFromVocal(musicDir, job.groupKey, signal);
   }
   if (job.type === "separate-stems") {
     if (!job.groupKey) throw new Error("Falta groupKey");
-    return generateStemsFromSource(musicDir, job.groupKey);
+    return generateStemsFromSource(musicDir, job.groupKey, signal);
   }
   if (!job.url) throw new Error("Falta URL");
-  return importSongFromYoutube(job.url, musicDir);
+  return importSongFromYoutube(job.url, musicDir, signal);
 }
 
 function runJob(job: YoutubeJob, musicDir: string) {
+  const controller = new AbortController();
+  globalThis.__youtubeImportActiveAbort = controller;
   globalThis.__youtubeImportActiveJobId = job.id;
   job.status = "pending";
   job.updatedAt = Date.now();
@@ -154,28 +170,52 @@ function runJob(job: YoutubeJob, musicDir: string) {
     job.updatedAt = Date.now();
 
     try {
-      const result = await executeJob(job, musicDir);
+      const result = await executeJob(job, musicDir, controller.signal);
       job.status = "completed";
       job.result = result;
       job.error = undefined;
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      if (message === PREEMPTED_ERROR) {
+        job.status = "queued";
+        if (!queue().includes(job.id)) queue().push(job.id);
+        return;
+      }
       job.status = "failed";
-      job.error = err instanceof Error ? err.message : "Error desconocido";
+      job.error = message;
     } finally {
       job.updatedAt = Date.now();
       if (globalThis.__youtubeImportActiveJobId === job.id) {
         globalThis.__youtubeImportActiveJobId = undefined;
+      }
+      if (globalThis.__youtubeImportActiveAbort === controller) {
+        globalThis.__youtubeImportActiveAbort = undefined;
       }
       processNextInQueue(musicDir);
     }
   })();
 }
 
+function takeNextQueuedId(): string | undefined {
+  const q = queue();
+  const store = jobs();
+  const vocalAt = q.findIndex((id) => {
+    const job = store.get(id);
+    return job?.status === "queued" && isVocalJob(job);
+  });
+  const idx =
+    vocalAt >= 0
+      ? vocalAt
+      : q.findIndex((id) => store.get(id)?.status === "queued");
+  if (idx < 0) return undefined;
+  return q.splice(idx, 1)[0];
+}
+
 function processNextInQueue(musicDir: string) {
   if (getActiveYoutubeJob()) return;
 
   while (queue().length > 0) {
-    const nextId = queue().shift();
+    const nextId = takeNextQueuedId();
     if (!nextId) break;
 
     const job = jobs().get(nextId);
@@ -186,11 +226,21 @@ function processNextInQueue(musicDir: string) {
   }
 }
 
+function preemptStemJobIfNeeded() {
+  const active = getActiveYoutubeJob();
+  if (!active || isVocalJob(active)) return;
+  globalThis.__youtubeImportActiveAbort?.abort();
+}
+
 function enqueueJob(
   job: YoutubeJob,
   musicDir: string,
 ): { job: YoutubeJob; duplicate: boolean } {
   jobs().set(job.id, job);
+
+  if (isVocalJob(job)) {
+    preemptStemJobIfNeeded();
+  }
 
   const active = getActiveYoutubeJob();
   if (active) {
@@ -302,6 +352,6 @@ export function jobToPayload(job: YoutubeJob, queuePosition?: number) {
 export function getQueuePosition(jobId: string): number | null {
   const job = jobs().get(jobId);
   if (!job || job.status !== "queued") return null;
-  const idx = queue().indexOf(jobId);
+  const idx = getQueuedYoutubeJobs().findIndex((queued) => queued.id === jobId);
   return idx >= 0 ? idx + 1 : null;
 }

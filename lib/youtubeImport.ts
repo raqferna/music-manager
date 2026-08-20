@@ -1,6 +1,8 @@
-import { spawn } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
+import {
+  parseOkJson,
+  runPythonScript,
+  YOUTUBE_JOB_TIMEOUT_MS,
+} from "@/lib/pythonJob";
 import { resolveSeparationModelFile } from "@/lib/separationModel";
 
 export type YoutubeImportResult = {
@@ -20,106 +22,22 @@ export type YoutubeImportResult = {
   message: string;
 };
 
-function resolveQuitarVozPath(): string {
-  const configured = process.env.QUITAR_VOZ_PATH?.trim();
-  if (configured) {
-    return path.resolve(configured.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? ""));
-  }
-  return path.resolve(process.cwd(), "..", "quitar-voz");
-}
-
-function resolvePythonBin(quitarVozPath: string): string {
-  const configured = process.env.PYTHON_PATH?.trim();
-  if (configured) {
-    const resolved = path.resolve(
-      configured.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? ""),
-    );
-    if (fs.existsSync(resolved)) {
-      return resolved;
-    }
-  }
-
-  for (const rel of ["venv/bin/python3", "venv/bin/python", ".venv/bin/python3", ".venv/bin/python"]) {
-    const candidate = path.join(quitarVozPath, rel);
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "python3";
-}
-
-function parseScriptOutput(stdout: string): YoutubeImportResult {
-  const lines = stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const last = lines.at(-1);
-  if (!last) {
-    throw new Error("El script de importación no devolvió datos.");
-  }
-  const parsed = JSON.parse(last) as YoutubeImportResult & { ok?: boolean; error?: string };
-  if (!parsed.ok) {
-    throw new Error(parsed.error ?? "Error desconocido al importar desde YouTube");
-  }
-  return parsed;
-}
-
 export async function importSongFromYoutube(
   url: string,
   musicDir: string,
+  signal?: AbortSignal,
 ): Promise<YoutubeImportResult> {
-  const scriptPath = path.join(process.cwd(), "scripts", "import_youtube.py");
-  const quitarVozPath = resolveQuitarVozPath();
-  const python = resolvePythonBin(quitarVozPath);
-  const separationModel = resolveSeparationModelFile();
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(python, [scriptPath, url, musicDir], {
-      env: {
-        ...process.env,
-        QUITAR_VOZ_PATH: quitarVozPath,
-        SEPARATION_MODEL_FILE: separationModel,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-
-    child.on("error", (err) => {
-      reject(new Error(`No se pudo ejecutar Python (${python}): ${err.message}`));
-    });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        try {
-          resolve(parseScriptOutput(stdout));
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-        }
-        return;
-      }
-
-      try {
-        const payload = JSON.parse(
-          stdout
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .at(-1) ?? "{}",
-        ) as { error?: string };
-        reject(new Error(payload.error ?? stderr.trim() ?? `Importación fallida (código ${code})`));
-      } catch {
-        reject(new Error(stderr.trim() || stdout.trim() || `Importación fallida (código ${code})`));
-      }
-    });
+  const stdout = await runPythonScript({
+    scriptName: "import_youtube.py",
+    args: [url, musicDir],
+    extraEnv: {
+      SEPARATION_MODEL_FILE: resolveSeparationModelFile(),
+    },
+    timeoutMs: YOUTUBE_JOB_TIMEOUT_MS,
+    signal,
   });
+  return parseOkJson<YoutubeImportResult>(
+    stdout,
+    "El script de importación no devolvió datos.",
+  );
 }

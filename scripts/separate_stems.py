@@ -70,9 +70,16 @@ def main() -> int:
         emit({"ok": False, "error": f"No se encuentra quitar-voz en {quitar_voz}."})
         return 1
 
+    scripts_dir = str(Path(__file__).resolve().parent)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
     folder = str(quitar_voz)
     if folder not in sys.path:
         sys.path.insert(0, folder)
+
+    from separation_runtime import apply_cpu_limits, stems_backend_error
+
+    apply_cpu_limits()
 
     try:
         from app import (
@@ -87,6 +94,11 @@ def main() -> int:
     deps_err = _comprobar_dependencias()
     if deps_err:
         emit({"ok": False, "error": deps_err.replace("\n", " ")})
+        return 1
+
+    stems_err = stems_backend_error()
+    if stems_err:
+        emit({"ok": False, "error": stems_err})
         return 1
 
     _aplicar_ffmpeg_al_entorno()

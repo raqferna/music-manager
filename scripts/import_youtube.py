@@ -61,22 +61,6 @@ def fetch_youtube_metadata(url: str) -> tuple[str, str]:
     return parse_artist_title(title, uploader)
 
 
-def resolve_separation_model_file() -> str:
-    models = {
-        "fast": "UVR-MDX-NET-Inst_3.onnx",
-        "quality": "MDX23C-8KFFT-InstVoc_HQ.ckpt",
-    }
-    explicit = os.environ.get("SEPARATION_MODEL_FILE", "").strip()
-    if explicit:
-        return explicit
-    mode = os.environ.get("SEPARATION_MODEL", "fast").strip().lower()
-    if mode in models:
-        return models[mode]
-    if mode.endswith((".onnx", ".ckpt", ".pth")):
-        return mode
-    return models["fast"]
-
-
 def emit(payload: dict) -> None:
     print(json.dumps(payload, ensure_ascii=False), flush=True)
 
@@ -99,17 +83,22 @@ def main() -> int:
         )
         return 1
 
+    scripts_dir = str(Path(__file__).resolve().parent)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
     folder = str(quitar_voz)
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
+    from separation_runtime import apply_cpu_limits, resolve_separation_model_file, separate_instrumental
+
+    apply_cpu_limits()
     os.environ["SEPARATION_MODEL_FILE"] = resolve_separation_model_file()
 
     try:
         from app import (
             _aplicar_ffmpeg_al_entorno,
             _comprobar_dependencias,
-            _procesar_archivo,
             descargar_audio_youtube,
         )
     except ImportError as exc:
@@ -155,7 +144,7 @@ def main() -> int:
 
         shutil.copy2(path_audio, vocal_dest)
 
-        path_instrumental, sep_msg = _procesar_archivo(path_audio)
+        path_instrumental, sep_msg = separate_instrumental(path_audio)
         if not path_instrumental:
             emit(
                 {

@@ -57,7 +57,8 @@ export default function AddStemsModal({ group, onClose, onSaved }: Props) {
               durante la reproducción.
             </p>
             <p className="mt-2 text-xs text-amber-200/80">
-              Proceso lento (varios minutos por canción). Se encolará en el servidor.
+              Demucs es muy pesado para el HP: si no hay RAM suficiente se cancela al instante
+              para no colgar YouTube. Las descargas «sin voz» tienen prioridad.
             </p>
           </div>
           <button

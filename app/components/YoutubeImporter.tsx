@@ -344,8 +344,10 @@ export default function YoutubeImporter({ onImported }: Props) {
           </p>
           <p className="text-xs text-cyan-100/80 leading-relaxed">
             {activeJob.type === "add-instrumental"
-              ? "Separando la pista instrumental. Puedes seguir añadiendo canciones a la cola."
-              : "Descargando audio y quitando la voz. Modo rápido: suele tardar 15–40 min. Puedes seguir añadiendo canciones a la cola."}
+              ? "Separando la pista instrumental con el modelo rápido. Puedes seguir añadiendo canciones a la cola."
+              : activeJob.type === "separate-stems"
+                ? "Separando instrumentos (Demucs). Si llega una descarga de YouTube, esta tarea se pausa para no tumbar el servidor."
+                : "Descargando audio y quitando la voz. Modo rápido ONNX: suele tardar 15–40 min. Puedes seguir añadiendo canciones a la cola."}
           </p>
         </div>
       ) : null}
@@ -395,9 +397,11 @@ export default function YoutubeImporter({ onImported }: Props) {
                   {job.status === "completed"
                     ? job.type === "add-instrumental"
                       ? "Sin voz OK"
-                      : job.result?.partial
-                        ? "Solo voz"
-                        : "OK"
+                      : job.type === "separate-stems"
+                        ? "Stems OK"
+                        : job.result?.partial
+                          ? "Solo voz"
+                          : "OK"
                     : statusLabel(job.status)}
                 </span>
               </li>

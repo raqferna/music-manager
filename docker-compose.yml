@@ -13,6 +13,12 @@ services:
       QUITAR_VOZ_PATH: /quitarvoces-root/quitar-voz
       PYTHONPATH: /quitarvoces-root/quitar-voz
       SEPARATION_MODEL: fast
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      NUMEXPR_NUM_THREADS: "2"
+      ONNXRUNTIME_INTRA_OP_NUM_THREADS: "2"
+      ONNXRUNTIME_INTER_OP_NUM_THREADS: "1"
     volumes:
       - ${QUITAR_VOZ_HOST_PATH:-../quitarvoces}:/quitarvoces-root:ro
       - ${MUSIC_HOST_PATH:-./music}:/music-dir

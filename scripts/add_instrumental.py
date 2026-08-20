@@ -19,22 +19,6 @@ def resolve_quitar_voz() -> Path:
     return Path(__file__).resolve().parent.parent / "quitar-voz"
 
 
-def resolve_separation_model_file() -> str:
-    models = {
-        "fast": "UVR-MDX-NET-Inst_3.onnx",
-        "quality": "MDX23C-8KFFT-InstVoc_HQ.ckpt",
-    }
-    explicit = os.environ.get("SEPARATION_MODEL_FILE", "").strip()
-    if explicit:
-        return explicit
-    mode = os.environ.get("SEPARATION_MODEL", "fast").strip().lower()
-    if mode in models:
-        return models[mode]
-    if mode.endswith((".onnx", ".ckpt", ".pth")):
-        return mode
-    return models["fast"]
-
-
 def find_vocal_file(output_dir: Path, group_key: str) -> Path | None:
     exact = output_dir / f"{group_key} (con voz).wav"
     if exact.is_file():
@@ -69,17 +53,22 @@ def main() -> int:
         emit({"ok": False, "error": f"No se encuentra quitar-voz en {quitar_voz}."})
         return 1
 
+    scripts_dir = str(Path(__file__).resolve().parent)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
     folder = str(quitar_voz)
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
+    from separation_runtime import apply_cpu_limits, resolve_separation_model_file, separate_instrumental
+
+    apply_cpu_limits()
     os.environ["SEPARATION_MODEL_FILE"] = resolve_separation_model_file()
 
     try:
         from app import (
             _aplicar_ffmpeg_al_entorno,
             _comprobar_dependencias,
-            _procesar_archivo,
         )
     except ImportError as exc:
         emit({"ok": False, "error": f"No se pudieron cargar módulos de quitar-voz: {exc}"})
@@ -112,7 +101,7 @@ def main() -> int:
         )
         return 1
 
-    path_instrumental, sep_msg = _procesar_archivo(str(vocal_file))
+    path_instrumental, sep_msg = separate_instrumental(str(vocal_file))
     if not path_instrumental:
         emit({"ok": False, "error": sep_msg.replace("\n", " ")})
         return 1
