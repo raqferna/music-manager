@@ -14,7 +14,7 @@ import PdfViewer from "./components/PdfViewer";
 import LyricsModal from "./components/LyricsModal";
 import MusicUploader from "./components/MusicUploader";
 import YoutubeImporter from "./components/YoutubeImporter";
-import { Disc, Search, FolderOpen, Smartphone } from "./components/icons";
+import { Disc, Search, FolderOpen, Smartphone, GraduationCap } from "./components/icons";
 
 type ApiResponse = { dir: string; groups: SongGroup[] };
 
@@ -145,6 +145,13 @@ export default function CatalogApp() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+            <a
+              href="/curso"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              <GraduationCap className="h-4 w-4 text-violet-300" />
+              Cursos
+            </a>
             <a
               href="/android"
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"

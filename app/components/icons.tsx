@@ -203,3 +203,37 @@ export function Smartphone(props: IconProps) {
   );
 }
 
+export function GraduationCap(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M22 10 12 5 2 10l10 5 10-5z" />
+      <path d="M6 12v5c0 1 2.5 3 6 3s6-2 6-3v-5" />
+      <path d="M22 10v6" />
+    </svg>
+  );
+}
+
+export function Check(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 12l5 5L20 7" />
+    </svg>
+  );
+}
+
+export function ChevronLeft(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M15 6 9 12l6 6" />
+    </svg>
+  );
+}
+
+export function ChevronRight(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
