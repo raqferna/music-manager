@@ -16,6 +16,7 @@ type Props = {
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
   canManage?: boolean;
+  canEditLyrics?: boolean;
 };
 
 function formatSize(bytes: number) {
@@ -37,6 +38,7 @@ function SongRow({
   onRequestEdit,
   onRequestDelete,
   canManage,
+  canEditLyrics,
 }: {
   group: SongGroup;
   active: boolean;
@@ -48,6 +50,7 @@ function SongRow({
   onRequestEdit: (group: SongGroup) => void;
   onRequestDelete: (group: SongGroup) => void;
   canManage: boolean;
+  canEditLyrics: boolean;
 }) {
   const { songTitle } = parseArtistTitle(group.groupKey);
   const displayTitle = formatLabel(songTitle);
@@ -55,7 +58,8 @@ function SongRow({
   return (
     <li>
       <div
-        className={`group flex items-center gap-3 rounded-2xl border p-3 transition cursor-pointer ${
+        data-active={active ? "true" : "false"}
+        className={`song-row group flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${
           active
             ? "border-violet-400/40 bg-violet-400/10 shadow-[0_0_0_1px_rgba(167,139,250,0.25)_inset]"
             : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.06]"
@@ -63,7 +67,7 @@ function SongRow({
         onClick={() => onSelect(group)}
       >
         <div
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+          className={`song-mark grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
             active ? "bg-violet-400/20 text-violet-200" : "bg-white/5 text-white/70"
           }`}
         >
@@ -73,12 +77,12 @@ function SongRow({
           <div className="truncate text-sm font-medium text-white/90">{displayTitle}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wide">
             {group.hasInstrumental ? (
-              <span className="rounded-full bg-cyan-400/15 px-2 py-0.5 text-cyan-200">
+              <span className="tone-instrumental rounded-full bg-cyan-400/15 px-2 py-0.5 text-cyan-200">
                 Sin voz
               </span>
             ) : null}
             {group.hasVocal ? (
-              <span className="rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-200">
+              <span className="tone-vocal rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-200">
                 Con voz
               </span>
             ) : null}
@@ -90,6 +94,35 @@ function SongRow({
             <span className="text-white/35 normal-case">{formatSize(group.size)}</span>
           </div>
         </div>
+        {canEditLyrics && !canManage ? (
+          group.hasLyrics ? (
+            <button
+              type="button"
+              title="Editar letra"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestLyrics(group);
+              }}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-emerald-200 transition hover:bg-emerald-400/25"
+            >
+              <FileText className="h-3 w-3" />
+              Letra
+            </button>
+          ) : (
+            <button
+              type="button"
+              title="Añadir letra"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestLyrics(group);
+              }}
+              className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70 transition hover:border-violet-400/40 hover:bg-violet-400/15 hover:text-violet-100"
+            >
+              <Plus className="h-3 w-3" />
+              Letra
+            </button>
+          )
+        ) : null}
         {canManage ? (
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className="flex items-center gap-1">
@@ -199,6 +232,7 @@ export default function SongList({
   onRequestEdit,
   onRequestDelete,
   canManage = true,
+  canEditLyrics = false,
 }: Props) {
   const sections = useMemo(() => groupByArtist(groups), [groups]);
 
@@ -211,11 +245,11 @@ export default function SongList({
   }
 
   return (
-    <div className="scroll-fancy max-h-[60vh] space-y-5 overflow-y-auto pr-1">
+    <div className="scroll-fancy max-lg:overflow-visible space-y-5 pr-1 lg:max-h-[60vh] lg:overflow-y-auto">
       {sections.map((section) => (
         <section key={section.artist}>
-          <div className="sticky top-0 z-10 mb-2 flex items-baseline gap-2 border-b border-white/10 bg-[#0f0a18]/95 px-1 py-2 backdrop-blur-sm">
-            <h3 className="truncate text-sm font-semibold tracking-tight text-violet-200">
+          <div className="artist-bar sticky top-0 z-10 mb-2 flex items-baseline gap-2 border-b border-white/10 bg-[#0f0a18]/95 px-1 py-2 backdrop-blur-sm">
+            <h3 className="artist-label truncate text-sm font-semibold tracking-tight text-violet-200">
               {section.artistLabel}
             </h3>
             <span className="shrink-0 text-[10px] text-white/40">
@@ -237,6 +271,7 @@ export default function SongList({
                 onRequestEdit={onRequestEdit}
                 onRequestDelete={onRequestDelete}
                 canManage={canManage}
+                canEditLyrics={canEditLyrics}
               />
             ))}
           </ul>

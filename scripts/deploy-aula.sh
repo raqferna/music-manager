@@ -19,6 +19,7 @@ fi
 
 export QUITAR_VOZ_HOST_PATH="${QUITAR_VOZ_HOST_PATH:-$ROOT/../quitarvoces}"
 export AULA_MUSIC_HOST_PATH="${AULA_MUSIC_HOST_PATH:-$ROOT/music-aula}"
+export CATALOG_MUSIC_HOST_PATH="${CATALOG_MUSIC_HOST_PATH:-$ROOT/../music-catalog/music}"
 mkdir -p "$AULA_MUSIC_HOST_PATH"
 
 echo "Construyendo imagen (el catálogo en marcha no se reinicia)..."

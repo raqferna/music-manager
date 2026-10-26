@@ -260,13 +260,14 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
       ? variant === "vocal"
         ? "Versión con voz"
         : "Versión sin voz (instrumental)"
-      : "Tu lista está a la izquierda.";
+      : "Elige una canción de la lista.";
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
         <div
-          className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/40 to-cyan-400/30 text-white shadow-inner ${
+          className={`vinyl grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/40 to-cyan-400/30 text-white shadow-inner sm:h-14 sm:w-14 ${
             playing ? "animate-float" : ""
           }`}
         >
@@ -278,11 +279,21 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
           </span>
         </div>
         <div className="min-w-0 grow">
-          <div className="truncate text-base font-semibold text-white">
-            {group ? group.title : "Selecciona una canción"}
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="song-title truncate text-base font-semibold text-white">
+              {group ? group.title : "Selecciona una canción"}
+            </div>
+            <span className="eq shrink-0" data-on={playing ? "true" : "false"}>
+              <i />
+              <i />
+              <i />
+              <i />
+            </span>
           </div>
           <div className="truncate text-xs text-white/50">{subtitle}</div>
         </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
         {group?.hasStems ? (
           <button
             type="button"
@@ -303,7 +314,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
               onClick={() => onVariantChange("instrumental")}
               className={`rounded-full px-3 py-1 transition ${
                 variant === "instrumental"
-                  ? "bg-cyan-400/20 text-cyan-100"
+                  ? "tone-instrumental bg-cyan-400/20 text-cyan-100"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -314,7 +325,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
               onClick={() => onVariantChange("vocal")}
               className={`rounded-full px-3 py-1 transition ${
                 variant === "vocal"
-                  ? "bg-violet-400/20 text-violet-100"
+                  ? "tone-vocal bg-violet-400/20 text-violet-100"
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -374,6 +385,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
             className="nice-range w-32"
             style={{ ["--val" as string]: `${volumePct}%` }}
           />
+        </div>
         </div>
       </div>
 
@@ -435,7 +447,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
         <button
           onClick={togglePlay}
           disabled={!canPlay}
-          className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.04] hover:shadow-violet-500/50 disabled:opacity-40 disabled:hover:scale-100"
+          className="play-main grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.04] hover:shadow-violet-500/50 disabled:opacity-40 disabled:hover:scale-100"
           title={playing ? "Pausar" : "Reproducir"}
         >
           {playing ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
@@ -450,7 +462,7 @@ const Player = forwardRef<HTMLAudioElement, Props>(function Player(
         </button>
       </div>
 
-      {!usingStems ? (
+      {!usingStems && audioSrc ? (
         <audio
           ref={innerRef}
           src={audioSrc}

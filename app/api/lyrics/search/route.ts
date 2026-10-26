@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchLyricsById, searchLyrics } from "@/lib/lyricsSearch";
+import { requireViewer } from "@/lib/viewerAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const denied = await requireViewer(req);
+  if (denied) return denied;
+
   try {
     const idParam = req.nextUrl.searchParams.get("id");
     if (idParam) {

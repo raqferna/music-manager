@@ -8,7 +8,7 @@ credentials-file: /etc/cloudflared/REEMPLAZA-CON-UUID-DEL-TUNEL.json
 ingress:
   - hostname: musica.tudominio.com
     service: http://localhost:5001
-  # Aula de canto (contenedor app-aula). El catch-all 404 tiene que quedar el último.
+  # Aula 4 (contenedor app-aula). El catch-all 404 tiene que quedar el último.
   # - hostname: aula.tudominio.com
   #   service: http://localhost:5002
   - service: http_status:404

@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
-import { siteSubtitle, siteTitle } from "@/lib/siteConfig";
+import { Fraunces, Nunito } from "next/font/google";
+import { siteMode, siteSubtitle, siteTitle } from "@/lib/siteConfig";
 import "./globals.css";
+
+const display = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const sans = Nunito({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +26,7 @@ export function generateMetadata(): Metadata {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" data-site={siteMode()} className={`${display.variable} ${sans.variable}`}>
       <body>{children}</body>
     </html>
   );

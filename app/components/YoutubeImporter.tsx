@@ -12,7 +12,7 @@ type JobStatus = "queued" | "pending" | "running" | "completed" | "failed";
 
 type JobPayload = {
   jobId: string;
-  type?: "youtube-import" | "add-instrumental" | "separate-stems";
+  type?: "youtube-import" | "add-vocal" | "add-instrumental" | "separate-stems";
   url?: string | null;
   groupKey?: string | null;
   label?: string;
@@ -78,6 +78,7 @@ function jobDisplayLabel(job: JobPayload): string {
 }
 
 function jobTypeHint(job: JobPayload): string {
+  if (job.type === "add-vocal") return "Descargar con voz";
   if (job.type === "add-instrumental") return "Generar sin voz";
   if (job.type === "separate-stems") return "Separar instrumentos";
   return "Importar YouTube";

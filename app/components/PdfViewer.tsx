@@ -9,9 +9,17 @@ type Props = {
   onAddLyrics: () => void;
   onEditLyrics: () => void;
   canManage?: boolean;
+  canEditLyrics?: boolean;
 };
 
-export default function PdfViewer({ group, onAddLyrics, onEditLyrics, canManage = true }: Props) {
+export default function PdfViewer({
+  group,
+  onAddLyrics,
+  onEditLyrics,
+  canManage = true,
+  canEditLyrics = false,
+}: Props) {
+  const canEdit = canManage || canEditLyrics;
   const src = useMemo(() => {
     if (!group?.hasLyrics) return null;
     return `/api/pdf/${encodeURIComponent(group.groupKey)}?v=${group.modifiedAt}`;
@@ -36,7 +44,7 @@ export default function PdfViewer({ group, onAddLyrics, onEditLyrics, canManage 
           <h3 className="text-base font-medium text-white/90">
             Esta canción no tiene letra todavía
           </h3>
-          {canManage ? (
+          {canEdit ? (
             <>
               <p className="mt-1 text-sm text-white/50">
                 Busca la letra en internet, pega el texto manualmente o descarga un
@@ -66,7 +74,7 @@ export default function PdfViewer({ group, onAddLyrics, onEditLyrics, canManage 
           <span className="truncate">{group.title} — letra</span>
         </div>
         <div className="flex items-center gap-2">
-          {canManage ? (
+          {canEdit ? (
             <button
               type="button"
               onClick={onEditLyrics}

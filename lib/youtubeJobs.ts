@@ -3,12 +3,17 @@ import { generateInstrumentalFromVocal, type InstrumentalGenerateResult } from "
 import { PREEMPTED_ERROR } from "@/lib/pythonJob";
 import { generateStemsFromSource, type StemGenerateResult } from "@/lib/stemGenerate";
 import { importSongFromYoutube, type YoutubeImportResult } from "@/lib/youtubeImport";
+import { downloadVocalFromYoutube, type VocalDownloadResult } from "@/lib/vocalDownload";
 
-export type ProcessingJobType = "youtube-import" | "add-instrumental" | "separate-stems";
+export type ProcessingJobType = "youtube-import" | "add-vocal" | "add-instrumental" | "separate-stems";
 
 export type YoutubeJobStatus = "queued" | "pending" | "running" | "completed" | "failed";
 
-export type ProcessingJobResult = YoutubeImportResult | InstrumentalGenerateResult | StemGenerateResult;
+export type ProcessingJobResult =
+  | YoutubeImportResult
+  | VocalDownloadResult
+  | InstrumentalGenerateResult
+  | StemGenerateResult;
 
 export type YoutubeJob = {
   id: string;
@@ -146,6 +151,10 @@ async function executeJob(
   musicDir: string,
   signal: AbortSignal,
 ): Promise<ProcessingJobResult> {
+  if (job.type === "add-vocal") {
+    if (!job.groupKey || !job.url) throw new Error("Faltan la canción o el enlace");
+    return downloadVocalFromYoutube(job.url, musicDir, job.groupKey);
+  }
   if (job.type === "add-instrumental") {
     if (!job.groupKey) throw new Error("Falta groupKey");
     return generateInstrumentalFromVocal(musicDir, job.groupKey, signal);
@@ -272,6 +281,31 @@ export function enqueueYoutubeImportJob(url: string, musicDir: string): { job: Y
   return enqueueJob(job, musicDir);
 }
 
+export function enqueueVocalJob(
+  groupKey: string,
+  url: string,
+  musicDir: string,
+): { job: YoutubeJob; duplicate: boolean } {
+  pruneOldJobs();
+
+  const duplicate = findDuplicateJob("add-vocal", groupKey);
+  if (duplicate) {
+    return { job: duplicate, duplicate: true };
+  }
+
+  const job: YoutubeJob = {
+    id: randomUUID(),
+    type: "add-vocal",
+    url,
+    groupKey,
+    status: "queued",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  return enqueueJob(job, musicDir);
+}
+
 export function enqueueInstrumentalJob(
   groupKey: string,
   musicDir: string,
@@ -324,6 +358,9 @@ export function startYoutubeImportJob(url: string, musicDir: string): YoutubeJob
 }
 
 export function jobLabel(job: YoutubeJob): string {
+  if (job.type === "add-vocal") {
+    return job.groupKey ?? "Con voz";
+  }
   if (job.type === "add-instrumental") {
     return job.groupKey ?? "Sin voz";
   }

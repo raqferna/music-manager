@@ -72,7 +72,7 @@ cp .env.tunnel.example .env.tunnel
 # NO reinicies el túnel — la URL no cambia
 ```
 
-## Aula de canto (otro sitio, otra carpeta)
+## Aula 4 (otro sitio, otra carpeta)
 
 El aula es el mismo programa en otro contenedor. Las canciones van a `music-aula`, no a `music`. El catálogo no se mezcla ni se reinicia al desplegar el aula.
 
@@ -85,7 +85,7 @@ cp .env.aula.example .env.aula
 ./scripts/deploy-aula.sh
 ```
 
-Queda en `http://localhost:5002`. Quien abre la URL puede escuchar (con voz, sin voz y letra). Para subir, importar de YouTube, quitar la voz o borrar hace falta esa contraseña: botón **Entrar**. Sin `ADMIN_PASSWORD` el catálogo sigue abierto, como hasta ahora.
+Queda en `http://localhost:5002`. En el aula hay dos cuentas, las dos en `.env.aula`: `AULA_CLASS_USER` (por defecto `aulacuatro`) solo escucha, y `admin` con `AULA_ADMIN_PASSWORD` puede añadir canciones. Sin `ADMIN_PASSWORD` el catálogo sigue abierto, como hasta ahora.
 
 ### Segundo hostname en el mismo túnel
 
@@ -102,7 +102,7 @@ Quedará algo como `https://aula.tudominio.com`.
 
 Si usas `cloudflared/config.yml` en lugar del token, descomenta el hostname del aula en `cloudflared/config.yml.example` y reinicia el túnel solo en ese caso.
 
-Access en ese hostname es opcional: puedes dejar entrar a la clase por email. La contraseña de admin es aparte y solo sirve para añadir canciones. Si no pones Access, cualquiera con la URL puede escuchar; no puede encolar trabajos de quitar voz ni subir archivos.
+El aula no usa el login por email de Access. Quien no tenga usuario ve solo la pantalla de entrada. Las canciones, el audio y la letra no se sirven sin esa sesión.
 
 Reinicia el túnel solo si falla o cambias el token:
 

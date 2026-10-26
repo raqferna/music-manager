@@ -5,6 +5,7 @@ export type SitePublicConfig = {
   siteTitle: string;
   siteSubtitle: string;
   adminRequired: boolean;
+  viewerRequired: boolean;
 };
 
 /** Acceso dinámico para que Docker lea el valor al arrancar, no al construir la imagen. */
@@ -19,7 +20,7 @@ export function siteMode(): SiteMode {
 export function siteTitle(): string {
   const custom = env("SITE_TITLE");
   if (custom) return custom;
-  return siteMode() === "aula" ? "Aula de canto" : "Catálogo Musical";
+  return siteMode() === "aula" ? "Aula 4" : "Catálogo Musical";
 }
 
 export function siteSubtitle(): string {
@@ -35,11 +36,25 @@ export function adminPassword(): string | null {
   return value.length > 0 ? value : null;
 }
 
+export function classUsername(): string {
+  return env("AULA_CLASS_USER") || "aulacuatro";
+}
+
+export function classPassword(): string | null {
+  const value = env("AULA_CLASS_PASSWORD");
+  return value.length > 0 ? value : null;
+}
+
+export function viewerRequired(): boolean {
+  return siteMode() === "aula";
+}
+
 export function getSitePublicConfig(): SitePublicConfig {
   return {
     siteMode: siteMode(),
     siteTitle: siteTitle(),
     siteSubtitle: siteSubtitle(),
     adminRequired: adminPassword() !== null,
+    viewerRequired: viewerRequired(),
   };
 }

@@ -119,3 +119,146 @@ input[type="range"].nice-range:hover::-webkit-slider-thumb {
 .animate-spin-slow {
   animation: spin-slow 8s linear infinite;
 }
+
+.font-display {
+  font-family: var(--font-display), "Iowan Old Style", Palatino, Georgia, serif;
+}
+
+.eq {
+  display: none;
+}
+
+/* Aula: escenario oscuro, pentagrama y acentos de oro. El catálogo no lleva data-site="aula". */
+html[data-site="aula"] {
+  --accent: #e7c27a;
+  --accent-2: #f0b4c4;
+  --bg-grad-1: #140910;
+  --bg-grad-2: #2a1020;
+  --bg-grad-3: #1a0e18;
+}
+
+html[data-site="aula"] body {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color: #f6efe6;
+  background: #10080e;
+}
+
+html[data-site="aula"] body::before,
+html[data-site="aula"] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+}
+
+html[data-site="aula"] body::before {
+  z-index: 0;
+  inset: -40px;
+  background: url("/aula/fondo.jpg") center 42% / cover no-repeat;
+  filter: blur(2px) saturate(1.2);
+  transform: scale(1.08);
+}
+
+html[data-site="aula"] body::after {
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 12, 22, 0.48) 0%, rgba(6, 12, 24, 0.18) 38%, rgba(6, 10, 20, 0.34) 100%);
+}
+
+html[data-site="aula"] body > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-site="aula"] .song-title {
+  font-family: var(--font-display), "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 560;
+}
+
+html[data-site="aula"] h1,
+html[data-site="aula"] h2,
+html[data-site="aula"] .font-display {
+  font-family: var(--font-display), "Iowan Old Style", Palatino, Georgia, serif;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+html[data-site="aula"] .glass,
+html[data-site="aula"] .glass-strong {
+  background: rgba(10, 16, 30, 0.72);
+  border-color: rgba(243, 224, 176, 0.16);
+  box-shadow: 0 18px 50px rgba(12, 4, 8, 0.45);
+}
+
+html[data-site="aula"] .scroll-fancy::-webkit-scrollbar-thumb {
+  background: rgba(231, 194, 122, 0.4);
+}
+html[data-site="aula"] .scroll-fancy::-webkit-scrollbar-thumb:hover {
+  background: rgba(231, 194, 122, 0.65);
+}
+
+html[data-site="aula"] .song-row[data-active="true"] {
+  border-color: rgba(231, 194, 122, 0.5);
+  background: linear-gradient(90deg, rgba(231, 194, 122, 0.16), rgba(240, 180, 196, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(231, 194, 122, 0.22);
+}
+html[data-site="aula"] .song-row[data-active="true"] .song-mark {
+  background: rgba(243, 224, 176, 0.18);
+  color: #f3e0b0;
+}
+html[data-site="aula"] .artist-bar {
+  background: rgba(10, 16, 30, 0.94);
+  border-color: rgba(243, 224, 176, 0.16);
+}
+html[data-site="aula"] .artist-label {
+  color: #f3e0b0;
+}
+html[data-site="aula"] .tone-instrumental {
+  background: rgba(231, 194, 122, 0.16);
+  color: #f3e0b0;
+}
+html[data-site="aula"] .tone-vocal {
+  background: rgba(240, 180, 196, 0.2);
+  color: #f6d5de;
+}
+
+html[data-site="aula"] .vinyl {
+  background:
+    radial-gradient(circle at 50% 50%, #f6efe6 0 16%, #3a1424 17% 22%, #140910 23% 34%, #3a1424 35% 36%, #140910 37% 100%);
+  color: #f3e0b0;
+  box-shadow: 0 0 0 1px rgba(243, 224, 176, 0.35), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+html[data-site="aula"] .play-main,
+html[data-site="aula"] .aula-cta {
+  background: linear-gradient(145deg, #f3e0b0, #e8b4c4 58%, #d7a6df);
+  color: #3a1424;
+  box-shadow: 0 12px 28px rgba(232, 180, 196, 0.32);
+}
+html[data-site="aula"] .play-main:hover {
+  box-shadow: 0 14px 32px rgba(232, 180, 196, 0.45);
+}
+
+html[data-site="aula"] .eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+}
+html[data-site="aula"] .eq i {
+  display: block;
+  width: 3px;
+  height: 5px;
+  border-radius: 999px;
+  background: #e7c27a;
+}
+html[data-site="aula"] .eq[data-on="true"] i {
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+html[data-site="aula"] .eq[data-on="true"] i:nth-child(2) { animation-delay: 0.12s; }
+html[data-site="aula"] .eq[data-on="true"] i:nth-child(3) { animation-delay: 0.24s; }
+html[data-site="aula"] .eq[data-on="true"] i:nth-child(4) { animation-delay: 0.06s; }
+
+@keyframes eq-bar {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}

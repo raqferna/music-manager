@@ -8,6 +8,7 @@ type Props = {
   group: SongGroup;
   onClose: () => void;
   onSaved: () => void;
+  allowTranscribe?: boolean;
 };
 
 type Mode = "search" | "text" | "url" | "transcribe";
@@ -30,7 +31,7 @@ function formatDuration(seconds?: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function LyricsModal({ group, onClose, onSaved }: Props) {
+export default function LyricsModal({ group, onClose, onSaved, allowTranscribe = true }: Props) {
   const isEditing = group.hasLyrics;
   const [mode, setMode] = useState<Mode>(isEditing ? "text" : "search");
   const [searchQuery, setSearchQuery] = useState(group.title);
@@ -329,7 +330,9 @@ export default function LyricsModal({ group, onClose, onSaved }: Props) {
                 ["url", "PDF (URL)"],
                 ["transcribe", "De la canción"],
               ] as const
-            ).map(([key, label]) => (
+            )
+              .filter(([key]) => allowTranscribe || key !== "transcribe")
+              .map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setMode(key)}

@@ -1,6 +1,8 @@
 import fsp from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { siteMode } from "@/lib/siteConfig";
+import { requireViewer } from "@/lib/viewerAuth";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
 import { generatePdfFromText } from "@/lib/lyricsPdf";
 import {
@@ -35,6 +37,9 @@ async function downloadPdf(url: string): Promise<Uint8Array> {
 }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireViewer(req);
+  if (denied) return denied;
+
   try {
     const baseName = safeBasename(req.nextUrl.searchParams.get("baseName") ?? "");
     if (!baseName) {
@@ -62,7 +67,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = siteMode() === "aula" ? await requireViewer(req) : requireAdmin(req);
   if (denied) return denied;
 
   try {

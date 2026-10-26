@@ -1,15 +1,19 @@
 import fsp from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { requireViewer } from "@/lib/viewerAuth";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
 import { deleteLyricsSidecar, lyricsPdfPath } from "@/lib/lyricsStorage";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   ctx: { params: Promise<{ base: string }> },
 ) {
+  const denied = await requireViewer(req);
+  if (denied) return denied;
+
   try {
     const { base } = await ctx.params;
     const baseName = safeBasename(decodeURIComponent(base));

@@ -57,11 +57,11 @@ npm start
 - `app/api/lyrics/search` – busca letras en internet (LRCLib) y obtiene el texto completo.
 - `lib/musicDir.ts` – resuelve la carpeta de música y sanea nombres de archivo.
 
-## Aula de canto
+## Aula 4
 
-Segundo sitio, aparte del catálogo: otra carpeta (`music-aula`), puerto `5002`
-y contraseña solo para añadir canciones. Quien entra sin esa contraseña puede
-escuchar y ver la letra.
+Segundo sitio, aparte del catálogo: otra carpeta (`music-aula`), puerto `5002`.
+Para ver las canciones hace falta entrar. Hay dos cuentas: `aulacuatro` para la
+clase, que solo escucha, y `admin`, que puede añadir canciones.
 
 ```bash
 cp .env.aula.example .env.aula

@@ -40,8 +40,11 @@ services:
       PYTHONPATH: /quitarvoces-root/quitar-voz
       SEPARATION_MODEL: fast
       SITE_MODE: aula
-      SITE_TITLE: ${AULA_SITE_TITLE:-Aula de canto}
+      SITE_TITLE: ${AULA_SITE_TITLE:-Aula 4}
+      AULA_CLASS_USER: ${AULA_CLASS_USER:-aulacuatro}
+      AULA_CLASS_PASSWORD: ${AULA_CLASS_PASSWORD:-}
       ADMIN_PASSWORD: ${AULA_ADMIN_PASSWORD:-}
+      CATALOG_MUSIC_DIR: /catalogo-dir
       OMP_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
       OPENBLAS_NUM_THREADS: "2"
@@ -51,3 +54,4 @@ services:
     volumes:
       - ${QUITAR_VOZ_HOST_PATH:-../quitarvoces}:/quitarvoces-root:ro
       - ${AULA_MUSIC_HOST_PATH:-./music-aula}:/music-dir
+      - ${CATALOG_MUSIC_HOST_PATH:-../music-catalog/music}:/catalogo-dir:ro

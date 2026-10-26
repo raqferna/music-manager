@@ -3,6 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
+import { requireViewer } from "@/lib/viewerAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ name: string }> },
 ) {
+  const denied = await requireViewer(req);
+  if (denied) return denied;
+
   try {
     const { name } = await ctx.params;
     const fileName = safeBasename(decodeURIComponent(name));

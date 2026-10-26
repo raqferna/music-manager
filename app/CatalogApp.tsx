@@ -5,6 +5,10 @@ import { matchesSearch } from "@/lib/artistGroups";
 import type { SitePublicConfig } from "@/lib/siteConfig";
 import type { SongGroup } from "@/lib/types";
 import AdminLogin from "./components/AdminLogin";
+import AulaDecor from "./components/AulaDecor";
+import AulaLogin from "./components/AulaLogin";
+import CatalogImportModal from "./components/CatalogImportModal";
+import DownloadRequests from "./components/DownloadRequests";
 import AddStemsModal from "./components/AddStemsModal";
 import AddVocalModal from "./components/AddVocalModal";
 import AddInstrumentalModal from "./components/AddInstrumentalModal";
@@ -16,11 +20,11 @@ import PdfViewer from "./components/PdfViewer";
 import LyricsModal from "./components/LyricsModal";
 import MusicUploader from "./components/MusicUploader";
 import YoutubeImporter from "./components/YoutubeImporter";
-import { Disc, Search, FolderOpen, Smartphone, GraduationCap } from "./components/icons";
+import { Disc, Search, FolderOpen, GraduationCap } from "./components/icons";
 
 type ApiResponse = { dir: string; groups: SongGroup[] };
 
-type SessionResponse = SitePublicConfig & { admin?: boolean };
+type SessionResponse = SitePublicConfig & { admin?: boolean; viewer?: boolean };
 
 type Props = {
   initialSite: SitePublicConfig;
@@ -43,12 +47,17 @@ export default function CatalogApp({ initialSite }: Props) {
   const [actionGroup, setActionGroup] = useState<SongGroup | null>(null);
   const [admin, setAdmin] = useState(!initialSite.adminRequired);
   const [adminRequired, setAdminRequired] = useState(initialSite.adminRequired);
+  const [viewerRequired, setViewerRequired] = useState(initialSite.viewerRequired);
+  const [viewer, setViewer] = useState(!initialSite.viewerRequired);
+  const [sessionReady, setSessionReady] = useState(!initialSite.viewerRequired);
   const [siteMode, setSiteMode] = useState(initialSite.siteMode);
   const [siteTitle, setSiteTitle] = useState(initialSite.siteTitle);
   const [siteSubtitle, setSiteSubtitle] = useState(initialSite.siteSubtitle);
   const [showLogin, setShowLogin] = useState(false);
+  const [showCatalogImport, setShowCatalogImport] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canManage = admin;
+  const canEditLyrics = siteMode === "aula" && viewer;
 
   async function refresh(preferGroupKey?: string | null): Promise<SongGroup[]> {
     setLoading(true);
@@ -92,9 +101,10 @@ export default function CatalogApp({ initialSite }: Props) {
   }
 
   useEffect(() => {
+    if (viewerRequired && !viewer) return;
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [viewer, viewerRequired]);
 
   useEffect(() => {
     void fetch("/api/admin/session", { cache: "no-store" })
@@ -102,16 +112,20 @@ export default function CatalogApp({ initialSite }: Props) {
       .then((data: SessionResponse) => {
         setAdmin(Boolean(data.admin));
         setAdminRequired(Boolean(data.adminRequired));
+        setViewerRequired(Boolean(data.viewerRequired));
+        setViewer(Boolean(data.viewer));
         if (data.siteMode === "aula" || data.siteMode === "catalogo") setSiteMode(data.siteMode);
         if (typeof data.siteTitle === "string" && data.siteTitle) setSiteTitle(data.siteTitle);
         if (typeof data.siteSubtitle === "string" && data.siteSubtitle) setSiteSubtitle(data.siteSubtitle);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setSessionReady(true));
   }, []);
 
   async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST" });
     setAdmin(false);
+    setViewer(false);
   }
 
   const filtered = useMemo(() => {
@@ -158,25 +172,47 @@ export default function CatalogApp({ initialSite }: Props) {
     });
   }
 
+  if (viewerRequired && !sessionReady) {
+    return (
+      <div className="grid min-h-screen place-items-center text-sm text-white/50">Cargando…</div>
+    );
+  }
+
+  if (viewerRequired && !viewer) {
+    return (
+      <AulaLogin
+        title={siteTitle}
+        onSuccess={(isAdmin) => {
+          setViewer(true);
+          setAdmin(isAdmin);
+        }}
+      />
+    );
+  }
+
+  const aula = siteMode === "aula";
+
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto max-w-[1400px]">
+    <div className="relative min-h-screen overflow-x-hidden px-4 py-6 md:px-8 md:py-10">
+      <div className="relative mx-auto max-w-[1400px]">
         <header className="mb-6 flex flex-col items-start justify-between gap-3 md:mb-8 md:flex-row md:items-center">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl glass-strong">
-              <span className="animate-spin-slow">
-                <Disc className="h-7 w-7 text-violet-300" />
+            <div className={`grid h-12 w-12 place-items-center rounded-2xl ${aula ? "vinyl" : "glass-strong"}`}>
+              <span className={aula ? "" : "animate-spin-slow"}>
+                <Disc className={`h-7 w-7 ${aula ? "text-[#f3e0b0]" : "text-violet-300"}`} />
               </span>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            <div className="min-w-0">
+              <h1 className={`text-2xl md:text-3xl ${aula ? "font-display text-3xl leading-tight text-[#f6efe6] sm:text-4xl md:text-5xl" : "font-semibold tracking-tight"}`}>
                 {siteTitle}
               </h1>
-              <p className="text-sm text-white/60">{siteSubtitle}</p>
+              <p className={aula ? "font-display text-sm italic text-[#f3e0b0]/75" : "text-sm text-white/60"}>
+                {siteSubtitle}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
-            {adminRequired && !admin ? (
+            {!viewerRequired && adminRequired && !admin ? (
               <button
                 type="button"
                 onClick={() => setShowLogin(true)}
@@ -185,7 +221,7 @@ export default function CatalogApp({ initialSite }: Props) {
                 Entrar
               </button>
             ) : null}
-            {adminRequired && admin ? (
+            {(viewerRequired && viewer) || (!viewerRequired && adminRequired && admin) ? (
               <button
                 type="button"
                 onClick={() => void logout()}
@@ -203,26 +239,30 @@ export default function CatalogApp({ initialSite }: Props) {
               Cursos
             </a>
             )}
-            <a
-              href="/android"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"
-            >
-              <Smartphone className="h-4 w-4 text-violet-300" />
-              App Android
-            </a>
             {canManage ? (
-              <>
-                <FolderOpen className="h-4 w-4 text-violet-300" />
-                <code className="rounded-lg bg-white/5 px-2 py-1 text-white/80">
+              <span className="hidden max-w-xs items-center gap-2 md:inline-flex">
+                <FolderOpen className="h-4 w-4 shrink-0 text-violet-300" />
+                <code className="truncate rounded-lg bg-white/5 px-2 py-1 text-white/80">
                   {musicDir || "Cargando…"}
                 </code>
-              </>
+              </span>
             ) : null}
           </div>
         </header>
+        {aula ? <AulaDecor /> : null}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(320px,420px)_1fr]">
-          <section className="glass rounded-3xl p-4 md:p-5 animate-fade-up">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(320px,420px)_1fr] lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
+          <section className="glass order-2 rounded-3xl p-4 animate-fade-up md:p-5 lg:order-none lg:col-start-1 lg:row-span-2">
+            {aula ? <DownloadRequests admin={canManage} groups={groups} /> : null}
+            {canManage && siteMode === "aula" ? (
+              <button
+                type="button"
+                onClick={() => setShowCatalogImport(true)}
+                className="aula-cta mb-4 w-full rounded-2xl px-3 py-2.5 text-sm font-medium transition hover:brightness-105"
+              >
+                Importar del catálogo personal
+              </button>
+            ) : null}
             {canManage ? (
               <div className="mb-5 space-y-5">
                 <YoutubeImporter onImported={handleImported} />
@@ -237,7 +277,7 @@ export default function CatalogApp({ initialSite }: Props) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar cantante o canción…"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-base text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10 sm:text-sm"
               />
             </div>
 
@@ -260,12 +300,13 @@ export default function CatalogApp({ initialSite }: Props) {
                 {error}
               </div>
             ) : groups.length === 0 && !loading ? (
-              <EmptyState dir={musicDir} canManage={canManage} />
+              <EmptyState dir={musicDir} canManage={canManage} aula={aula} />
             ) : (
               <SongList
                 groups={filtered}
                 selectedGroupKey={selectedGroupKey}
                 canManage={canManage}
+                canEditLyrics={canEditLyrics}
                 onSelect={handleSelect}
                 onRequestLyrics={(g) => {
                   setSelectedGroupKey(g.groupKey);
@@ -295,16 +336,16 @@ export default function CatalogApp({ initialSite }: Props) {
             )}
           </section>
 
-          <section className="flex min-h-[70vh] flex-col gap-4">
-            <div className="grow glass-strong rounded-3xl p-3 md:p-4 animate-fade-up">
+          <div className="glass-strong order-3 min-h-[46vh] rounded-3xl p-3 animate-fade-up md:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:min-h-[70vh]">
               <PdfViewer
                 group={selected}
                 canManage={canManage}
+                canEditLyrics={canEditLyrics}
                 onAddLyrics={() => setShowLyricsModal(true)}
                 onEditLyrics={() => setShowLyricsModal(true)}
               />
-            </div>
-            <div className="glass-strong rounded-3xl p-4 md:p-5 animate-fade-up">
+          </div>
+          <div className="glass-strong order-1 rounded-3xl p-4 animate-fade-up max-lg:sticky max-lg:top-2 max-lg:z-30 max-lg:bg-[#0c1424]/95 max-lg:shadow-2xl md:p-5 lg:order-none lg:col-start-2 lg:row-start-2">
               <Player
                 ref={audioRef}
                 group={selected}
@@ -329,10 +370,16 @@ export default function CatalogApp({ initialSite }: Props) {
                   if (next) handleSelect(next);
                 }}
               />
-            </div>
-          </section>
+          </div>
         </div>
       </div>
+
+      {showCatalogImport ? (
+        <CatalogImportModal
+          onClose={() => setShowCatalogImport(false)}
+          onImported={() => void refresh()}
+        />
+      ) : null}
 
       {showLogin ? (
         <AdminLogin
@@ -344,9 +391,10 @@ export default function CatalogApp({ initialSite }: Props) {
         />
       ) : null}
 
-      {canManage && showLyricsModal && selected ? (
+      {(canManage || canEditLyrics) && showLyricsModal && selected ? (
         <LyricsModal
           group={selected}
+          allowTranscribe={canManage}
           onClose={() => setShowLyricsModal(false)}
           onSaved={async () => {
             setShowLyricsModal(false);
@@ -430,19 +478,32 @@ export default function CatalogApp({ initialSite }: Props) {
   );
 }
 
-function EmptyState({ dir, canManage }: { dir: string; canManage: boolean }) {
+function EmptyState({ dir, canManage, aula }: { dir: string; canManage: boolean; aula: boolean }) {
   if (!canManage) {
     return (
       <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-center text-sm text-white/60">
-        <p className="text-white/80">Aún no hay canciones.</p>
+        {aula ? (
+          <>
+            <p className="font-display text-base text-[#f6efe6]/85">El ensayo todavía está en silencio.</p>
+            <p className="mt-1">Cuando haya canciones, aparecerán aquí.</p>
+          </>
+        ) : (
+          <p className="text-white/80">Aún no hay canciones.</p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-center text-sm text-white/60">
-      <p className="mb-1 text-white/80">Tu catálogo está vacío.</p>
-      <p>Pega un enlace de YouTube arriba o sube archivos manualmente.</p>
+      <p className="mb-1 text-white/80">
+        {aula ? "El aula todavía no tiene canciones." : "Tu catálogo está vacío."}
+      </p>
+      <p>
+        {aula
+          ? "Importa las que quieras de tu catálogo, pega un enlace de YouTube o sube un archivo."
+          : "Pega un enlace de YouTube arriba o sube archivos manualmente."}
+      </p>
       <p className="mt-2">También puedes copiar audios directamente en:</p>
       <code className="mt-2 inline-block rounded-lg bg-white/10 px-2 py-1 text-white/80">
         {dir}
