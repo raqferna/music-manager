@@ -94,6 +94,15 @@ export async function deleteSongGroup(
     }
   }
 
+  if (scope === "all") {
+    for (const stemFile of Object.values(group.stemFiles)) {
+      if (!stemFile) continue;
+      if (await unlinkIfExists(path.join(musicDir, safeBasename(stemFile)))) {
+        deleted.push(stemFile);
+      }
+    }
+  }
+
   if (scope === "all" || scope === "lyrics") {
     const pdfPath = lyricsPdfPath(musicDir, group.groupKey);
     if (await unlinkIfExists(pdfPath)) {
