@@ -213,6 +213,16 @@ export function GraduationCap(props: IconProps) {
   );
 }
 
+export function Film(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M7 5v14M17 5v14" />
+      <path d="M3 9h4M3 15h4M17 9h4M17 15h4" />
+    </svg>
+  );
+}
+
 export function Check(props: IconProps) {
   return (
     <svg {...base(props)}>

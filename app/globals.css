@@ -228,6 +228,11 @@ html[data-site="aula"] .vinyl {
   color: #f3e0b0;
   box-shadow: 0 0 0 1px rgba(243, 224, 176, 0.35), 0 12px 28px rgba(0, 0, 0, 0.35);
 }
+.aula-cta {
+  background: linear-gradient(to right, #8b5cf6, #22d3ee);
+  color: white;
+}
+
 html[data-site="aula"] .play-main,
 html[data-site="aula"] .aula-cta {
   background: linear-gradient(145deg, #f3e0b0, #e8b4c4 58%, #d7a6df);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { isPdfFilename, PDF_ACCEPT } from "@/lib/pdf";
 import type { LyricSearchResult, SongGroup } from "@/lib/types";
-import { Search, Loader, Mic, X } from "./icons";
+import { Search, Loader, Mic, Upload, X } from "./icons";
 
 type Props = {
   group: SongGroup;
@@ -40,6 +41,9 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
   const [previewTitle, setPreviewTitle] = useState("");
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [draggingPdf, setDraggingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [searching, setSearching] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
@@ -238,10 +242,34 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
     }
   }
 
+  function addPdfFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (!isPdfFilename(file.name) && file.type !== "application/pdf") {
+      setError("El archivo tiene que ser un PDF");
+      return;
+    }
+    setPdfFile(file);
+    setUrl("");
+  }
+
   async function submit() {
     setError(null);
     setLoading(true);
     try {
+      if (mode === "url" && pdfFile) {
+        const formData = new FormData();
+        formData.append("file", pdfFile);
+        formData.append("baseName", group.groupKey);
+        const res = await fetch("/api/lyrics/upload", { method: "POST", body: formData });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error ?? `HTTP ${res.status}`);
+        }
+        onSaved();
+        return;
+      }
+
       const body =
         mode === "url"
           ? { baseName: group.groupKey, pdfUrl: url }
@@ -274,7 +302,7 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
     !transcribing &&
     ((mode === "search" && selectedId !== null && text.trim().length > 0) ||
       ((mode === "text" || mode === "transcribe") && text.trim().length > 0) ||
-      (mode === "url" && /^https?:\/\//i.test(url.trim())));
+      (mode === "url" && (pdfFile !== null || /^https?:\/\//i.test(url.trim()))));
 
   return (
     <div
@@ -318,8 +346,8 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
             <>
           {missingSidecar && mode === "text" ? (
             <p className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
-              Esta canción tiene PDF pero no texto editable guardado (p. ej. se importó
-              desde una URL). Pega la letra abajo para regenerar el PDF.
+              Esta canción tiene PDF pero no texto editable guardado (p. ej. se subió
+              un archivo o se importó desde una URL). Pega la letra abajo para regenerar el PDF.
             </p>
           ) : null}
           <div className="mb-4 flex flex-wrap gap-1 rounded-full border border-white/10 bg-white/5 p-1 text-xs sm:text-sm">
@@ -327,7 +355,7 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
               [
                 ["search", "Buscar en internet"],
                 ["text", "Pegar texto"],
-                ["url", "PDF (URL)"],
+                ["url", "PDF"],
                 ["transcribe", "De la canción"],
               ] as const
             )
@@ -521,18 +549,77 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
               ) : null}
             </div>
           ) : (
-            <div className="space-y-3">
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://ejemplo.com/letra.pdf"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10"
-              />
-              <p className="text-xs text-white/50">
-                Pega un enlace directo a un archivo PDF y lo guardaré en tu
-                carpeta.
-              </p>
+            <div className="space-y-4">
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDraggingPdf(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  if (e.currentTarget === e.target) setDraggingPdf(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDraggingPdf(false);
+                  addPdfFile(e.dataTransfer.files[0]);
+                }}
+                className={`rounded-2xl border border-dashed p-5 text-center transition ${
+                  draggingPdf
+                    ? "border-violet-400/60 bg-violet-400/10"
+                    : "border-white/15 bg-white/[0.02] hover:border-white/25"
+                } ${loading ? "pointer-events-none opacity-70" : ""}`}
+              >
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept={PDF_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    addPdfFile(e.target.files?.[0]);
+                    if (pdfInputRef.current) pdfInputRef.current.value = "";
+                  }}
+                />
+                <Upload className="mx-auto mb-2 h-6 w-6 text-violet-300" />
+                <p className="text-sm text-white/80">Arrastra aquí el PDF de la letra</p>
+                <p className="mt-1 text-xs text-white/50">O elige un archivo de tu ordenador · hasta 30 MB</p>
+                <button
+                  type="button"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={loading}
+                  className="mt-3 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-4 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.02] disabled:opacity-50"
+                >
+                  Elegir PDF
+                </button>
+              </div>
+
+              {pdfFile ? (
+                <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate text-white/85">{pdfFile.name}</span>
+                  <button
+                    type="button"
+                    title="Quitar"
+                    disabled={loading}
+                    onClick={() => setPdfFile(null)}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-40"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <p className="text-xs text-white/45">O pega un enlace directo a un PDF</p>
+                <input
+                  type="url"
+                  value={url}
+                  disabled={Boolean(pdfFile) || loading}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://ejemplo.com/letra.pdf"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10 disabled:opacity-40"
+                />
+              </div>
             </div>
           )}
 
@@ -557,7 +644,13 @@ export default function LyricsModal({ group, onClose, onSaved, allowTranscribe =
             disabled={!canSubmit}
             className="rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-5 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/30 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
           >
-            {loading ? "Guardando…" : isEditing ? "Guardar cambios" : "Guardar letra"}
+            {loading
+              ? "Guardando…"
+              : mode === "url"
+                ? "Guardar PDF"
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Guardar letra"}
           </button>
         </footer>
       </div>

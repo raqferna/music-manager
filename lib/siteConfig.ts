@@ -27,8 +27,8 @@ export function siteSubtitle(): string {
   const custom = env("SITE_SUBTITLE");
   if (custom) return custom;
   return siteMode() === "aula"
-    ? "Escucha con voz o sin voz y sigue la letra."
-    : "Importa canciones, alterna con/sin voz y añade letras en PDF.";
+    ? "Repertorio Combal"
+    : "Importa canciones, letras en PDF y karaokes; alterna con/sin voz.";
 }
 
 export function adminPassword(): string | null {

@@ -47,8 +47,8 @@ export default function PdfViewer({
           {canEdit ? (
             <>
               <p className="mt-1 text-sm text-white/50">
-                Busca la letra en internet, pega el texto manualmente o descarga un
-                PDF desde una URL. Se guardará para las versiones con y sin voz.
+                Busca la letra en internet, pega el texto, sube un PDF o descarga
+                uno desde una URL. Se guardará para las versiones con y sin voz.
               </p>
               <button
                 onClick={onAddLyrics}

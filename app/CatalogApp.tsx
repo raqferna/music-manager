@@ -1,19 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { matchesSearch } from "@/lib/artistGroups";
+import { matchesSearch, parseArtistTitle } from "@/lib/artistGroups";
+import type { KaraokeVideo } from "@/lib/karaoke";
 import type { SitePublicConfig } from "@/lib/siteConfig";
 import type { SongGroup } from "@/lib/types";
 import AdminLogin from "./components/AdminLogin";
 import AulaDecor from "./components/AulaDecor";
 import AulaLogin from "./components/AulaLogin";
 import CatalogImportModal from "./components/CatalogImportModal";
+import ClassAccessPanel from "./components/ClassAccessPanel";
 import DownloadRequests from "./components/DownloadRequests";
 import AddStemsModal from "./components/AddStemsModal";
 import AddVocalModal from "./components/AddVocalModal";
 import AddInstrumentalModal from "./components/AddInstrumentalModal";
 import DeleteSongModal from "./components/DeleteSongModal";
 import EditSongModal from "./components/EditSongModal";
+import KaraokeList from "./components/KaraokeList";
+import KaraokePlayer from "./components/KaraokePlayer";
+import KaraokeUploader from "./components/KaraokeUploader";
 import SongList from "./components/SongList";
 import Player, { type PlaybackVariant } from "./components/Player";
 import PdfViewer from "./components/PdfViewer";
@@ -55,7 +60,14 @@ export default function CatalogApp({ initialSite }: Props) {
   const [siteSubtitle, setSiteSubtitle] = useState(initialSite.siteSubtitle);
   const [showLogin, setShowLogin] = useState(false);
   const [showCatalogImport, setShowCatalogImport] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<"songs" | "karaoke">("songs");
+  const [karaokeVideos, setKaraokeVideos] = useState<KaraokeVideo[]>([]);
+  const [karaokeLoading, setKaraokeLoading] = useState(false);
+  const [karaokeError, setKaraokeError] = useState<string | null>(null);
+  const [karaokeQuery, setKaraokeQuery] = useState("");
+  const [selectedKaraokeId, setSelectedKaraokeId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const canManage = admin;
   const canEditLyrics = siteMode === "aula" && viewer;
 
@@ -100,11 +112,50 @@ export default function CatalogApp({ initialSite }: Props) {
     await refresh();
   }
 
+  async function refreshKaraoke(preferId?: string | null): Promise<KaraokeVideo[]> {
+    setKaraokeLoading(true);
+    setKaraokeError(null);
+    try {
+      const res = await fetch("/api/karaoke", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { videos?: KaraokeVideo[] };
+      const videos = data.videos ?? [];
+      setKaraokeVideos(videos);
+
+      const preferred =
+        preferId ??
+        (selectedKaraokeId && videos.some((video) => video.id === selectedKaraokeId)
+          ? selectedKaraokeId
+          : null);
+
+      if (preferred && videos.some((video) => video.id === preferred)) {
+        setSelectedKaraokeId(preferred);
+      } else if (videos.length > 0) {
+        setSelectedKaraokeId(videos[0].id);
+      } else {
+        setSelectedKaraokeId(null);
+      }
+      return videos;
+    } catch (err) {
+      setKaraokeError(err instanceof Error ? err.message : "Error desconocido");
+      return [];
+    } finally {
+      setKaraokeLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (viewerRequired && !viewer) return;
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer, viewerRequired]);
+
+  useEffect(() => {
+    if (viewerRequired && !viewer) return;
+    if (libraryTab !== "karaoke") return;
+    void refreshKaraoke();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryTab, viewer, viewerRequired]);
 
   useEffect(() => {
     void fetch("/api/admin/session", { cache: "no-store" })
@@ -138,6 +189,39 @@ export default function CatalogApp({ initialSite }: Props) {
     () => groups.find((g) => g.groupKey === selectedGroupKey) ?? null,
     [groups, selectedGroupKey],
   );
+
+  const filteredKaraoke = useMemo(() => {
+    const q = karaokeQuery.trim().toLowerCase();
+    if (!q) return karaokeVideos;
+    return karaokeVideos.filter((video) => {
+      const { artist, songTitle } = parseArtistTitle(video.title);
+      return (
+        video.title.toLowerCase().includes(q) ||
+        artist.toLowerCase().includes(q) ||
+        songTitle.toLowerCase().includes(q)
+      );
+    });
+  }, [karaokeVideos, karaokeQuery]);
+
+  const selectedKaraoke = useMemo(
+    () => karaokeVideos.find((video) => video.id === selectedKaraokeId) ?? null,
+    [karaokeVideos, selectedKaraokeId],
+  );
+
+  function showSongs() {
+    videoRef.current?.pause();
+    setLibraryTab("songs");
+  }
+
+  function showKaraoke() {
+    audioRef.current?.pause();
+    setLibraryTab("karaoke");
+  }
+
+  function handleSelectKaraoke(video: KaraokeVideo) {
+    audioRef.current?.pause();
+    setSelectedKaraokeId(video.id);
+  }
 
   useEffect(() => {
     if (!selected) return;
@@ -182,6 +266,7 @@ export default function CatalogApp({ initialSite }: Props) {
     return (
       <AulaLogin
         title={siteTitle}
+        subtitle={siteSubtitle}
         onSuccess={(isAdmin) => {
           setViewer(true);
           setAdmin(isAdmin);
@@ -253,7 +338,74 @@ export default function CatalogApp({ initialSite }: Props) {
 
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(320px,420px)_1fr] lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
           <section className="glass order-2 rounded-3xl p-4 animate-fade-up md:p-5 lg:order-none lg:col-start-1 lg:row-span-2">
+            {aula && canManage ? <ClassAccessPanel /> : null}
             {aula ? <DownloadRequests admin={canManage} groups={groups} /> : null}
+            <div className="mb-4 flex rounded-full border border-white/10 bg-white/5 p-1 text-xs">
+              <button
+                type="button"
+                onClick={showSongs}
+                className={`flex-1 rounded-full px-3 py-1.5 transition ${
+                  libraryTab === "songs" ? "aula-cta font-semibold" : "text-white/60 hover:text-white"
+                }`}
+              >
+                Canciones
+              </button>
+              <button
+                type="button"
+                onClick={showKaraoke}
+                className={`flex-1 rounded-full px-3 py-1.5 transition ${
+                  libraryTab === "karaoke" ? "aula-cta font-semibold" : "text-white/60 hover:text-white"
+                }`}
+              >
+                Karaoke
+              </button>
+            </div>
+            {libraryTab === "karaoke" ? (
+              <>
+                {canManage ? <KaraokeUploader onAdded={(video) => void refreshKaraoke(video.id)} /> : null}
+                <div className="relative mb-4">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+                  <input
+                    value={karaokeQuery}
+                    onChange={(e) => setKaraokeQuery(e.target.value)}
+                    placeholder="Buscar karaoke…"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-base text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10 sm:text-sm"
+                  />
+                </div>
+                <div className="mb-3 flex items-center justify-between text-xs text-white/50">
+                  <span>
+                    {karaokeLoading
+                      ? "Cargando…"
+                      : `${filteredKaraoke.length} de ${karaokeVideos.length} karaokes`}
+                  </span>
+                  <button
+                    onClick={() => void refreshKaraoke()}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/70 transition hover:bg-white/10 hover:text-white"
+                  >
+                    Refrescar
+                  </button>
+                </div>
+                {karaokeError ? (
+                  <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
+                    {karaokeError}
+                  </div>
+                ) : karaokeVideos.length === 0 && !karaokeLoading ? (
+                  <KaraokeEmptyState canManage={canManage} />
+                ) : (
+                  <KaraokeList
+                    videos={filteredKaraoke}
+                    selectedId={selectedKaraokeId}
+                    canManage={canManage}
+                    onSelect={handleSelectKaraoke}
+                    onDeleted={(id) => {
+                      if (selectedKaraokeId === id) setSelectedKaraokeId(null);
+                      void refreshKaraoke();
+                    }}
+                  />
+                )}
+              </>
+            ) : (
+              <>
             {canManage && siteMode === "aula" ? (
               <button
                 type="button"
@@ -334,8 +486,16 @@ export default function CatalogApp({ initialSite }: Props) {
                 }}
               />
             )}
+              </>
+            )}
           </section>
 
+          {libraryTab === "karaoke" ? (
+            <div className="glass-strong order-1 min-h-[46vh] rounded-3xl p-3 animate-fade-up max-lg:sticky max-lg:top-2 max-lg:z-30 max-lg:bg-[#0c1424]/95 max-lg:shadow-2xl md:p-4 lg:order-none lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-[70vh]">
+              <KaraokePlayer ref={videoRef} video={selectedKaraoke} />
+            </div>
+          ) : (
+            <>
           <div className="glass-strong order-3 min-h-[46vh] rounded-3xl p-3 animate-fade-up md:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:min-h-[70vh]">
               <PdfViewer
                 group={selected}
@@ -371,6 +531,8 @@ export default function CatalogApp({ initialSite }: Props) {
                 }}
               />
           </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -474,6 +636,19 @@ export default function CatalogApp({ initialSite }: Props) {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+function KaraokeEmptyState({ canManage }: { canManage: boolean }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-center text-sm text-white/60">
+      <p className="text-base text-white/85">Aún no hay karaokes.</p>
+      {canManage ? (
+        <p className="mt-1">Sube un vídeo o pega un enlace de YouTube para cantarlos aquí.</p>
+      ) : (
+        <p className="mt-1">Cuando haya vídeos de karaoke, aparecerán aquí.</p>
+      )}
     </div>
   );
 }

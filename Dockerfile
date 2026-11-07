@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 # Dependencias de quitar-voz (no usar el venv del host montado por volumen).
 RUN pip3 install --no-cache-dir --break-system-packages \
-    yt-dlp \
+    "yt-dlp[default]" \
     audio-separator \
     onnxruntime \
     gradio \

@@ -48,7 +48,6 @@ def fetch_youtube_metadata(url: str) -> tuple[str, str]:
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -90,7 +89,21 @@ def main() -> int:
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
+    try:
+        import ytdlp_compat
+
+        ytdlp_compat.install()
+    except Exception:
+        pass
+
     from separation_runtime import apply_cpu_limits, resolve_separation_model_file, separate_instrumental
+
+    try:
+        from ytdlp_compat import install as install_ytdlp_compat
+
+        install_ytdlp_compat()
+    except Exception:
+        pass
 
     apply_cpu_limits()
     os.environ["SEPARATION_MODEL_FILE"] = resolve_separation_model_file()

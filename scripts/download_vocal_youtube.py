@@ -52,6 +52,20 @@ def main() -> int:
         sys.path.insert(0, folder)
 
     try:
+        from ytdlp_compat import install as install_ytdlp_compat
+
+        install_ytdlp_compat()
+    except Exception:
+        pass
+
+    try:
+        import ytdlp_compat
+
+        ytdlp_compat.install()
+    except Exception:
+        pass
+
+    try:
         from app import _aplicar_ffmpeg_al_entorno, descargar_audio_youtube
     except ImportError as exc:
         emit({"ok": False, "error": f"No se pudieron cargar módulos de quitar-voz: {exc}"})

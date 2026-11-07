@@ -6,10 +6,11 @@ import { Disc } from "./icons";
 
 type Props = {
   title: string;
+  subtitle: string;
   onSuccess: (admin: boolean) => void;
 };
 
-export default function AulaLogin({ title, onSuccess }: Props) {
+export default function AulaLogin({ title, subtitle, onSuccess }: Props) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +50,8 @@ export default function AulaLogin({ title, onSuccess }: Props) {
           <Disc className="h-7 w-7 text-[#f3e0b0]" />
         </div>
         <h1 className="font-display text-4xl text-[#f6efe6]">{title}</h1>
-        <p className="mt-1 font-display text-sm italic text-[#f3e0b0]/75">
-          Entra con el usuario que te hayan dado.
-        </p>
+        <p className="mt-1 font-display text-sm italic text-[#f3e0b0]/75">{subtitle}</p>
+        <p className="mt-1 text-sm text-white/55">Entra con el usuario que te hayan dado.</p>
 
         <label className="mt-5 block text-xs text-white/50" htmlFor="aula-user">
           Usuario

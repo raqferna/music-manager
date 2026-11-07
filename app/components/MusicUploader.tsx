@@ -27,6 +27,7 @@ export default function MusicUploader({ onUploaded, compact = false }: Props) {
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<Pending[]>([]);
   const [variant, setVariant] = useState<Variant>("vocal");
+  const [removeVocals, setRemoveVocals] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,15 +96,50 @@ export default function MusicUploader({ onUploaded, compact = false }: Props) {
         throw new Error(detail ?? `HTTP ${res.status}`);
       }
 
-      const uploaded = (data.uploaded ?? []) as { file: string }[];
+      const uploaded = (data.uploaded ?? []) as {
+        file: string;
+        groupKey: string;
+        variant: string;
+      }[];
       const partialErrors = (data.errors ?? []) as { name: string; error: string }[];
 
       if (uploaded.length > 0) {
-        setMessage(
+        let queued = 0;
+        const queueErrors: string[] = [];
+        if (removeVocals && variant === "vocal") {
+          for (const item of uploaded) {
+            try {
+              const r = await fetch("/api/songs/add-instrumental", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ groupKey: item.groupKey }),
+              });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+              queued += 1;
+            } catch (err) {
+              queueErrors.push(
+                `${item.groupKey}: ${err instanceof Error ? err.message : "no se pudo encolar"}`,
+              );
+            }
+          }
+          if (queued > 0) {
+            window.dispatchEvent(new CustomEvent("processing-queue-changed"));
+          }
+        }
+
+        const base =
           uploaded.length === 1
             ? `Subida: ${uploaded[0].file}`
-            : `${uploaded.length} canciones subidas`,
+            : `${uploaded.length} canciones subidas`;
+        setMessage(
+          queued > 0
+            ? `${base}. Quitando la voz en el servidor (${queued} en cola, tarda unos minutos).`
+            : base,
         );
+        if (queueErrors.length > 0) {
+          partialErrors.push(...queueErrors.map((e) => ({ name: "Quitar voz", error: e })));
+        }
         // Solo se quitan de la lista las que se subieron; las fallidas se pueden corregir.
         const failedNames = new Set(partialErrors.map((e) => e.name));
         setPending((prev) => prev.filter((p) => failedNames.has(p.file.name)));
@@ -233,6 +269,24 @@ export default function MusicUploader({ onUploaded, compact = false }: Props) {
               </label>
             ))}
           </div>
+
+          {variant === "vocal" ? (
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-white/70">
+              <input
+                type="checkbox"
+                checked={removeVocals}
+                disabled={uploading}
+                onChange={(e) => setRemoveVocals(e.target.checked)}
+                className="mt-0.5 accent-violet-400"
+              />
+              <span>
+                Quitar la voz automáticamente
+                <span className="block text-white/45">
+                  Genera la versión sin voz en el servidor (varios minutos por canción).
+                </span>
+              </span>
+            </label>
+          ) : null}
 
           <div className="flex justify-end gap-2">
             <button

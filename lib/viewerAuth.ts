@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/adminAuth";
-import { classPassword, classUsername, viewerRequired } from "@/lib/siteConfig";
+import { getClassPassword } from "@/lib/classAccess";
+import { classUsername, viewerRequired } from "@/lib/siteConfig";
 
 const COOKIE = "viewer_session";
 const MAX_AGE_SEC = 60 * 60 * 24 * 30;
@@ -28,8 +29,8 @@ function requestIsHttps(req: NextRequest): boolean {
   return req.nextUrl.protocol === "https:";
 }
 
-export function isViewerCookieValue(value: string | undefined): boolean {
-  const password = classPassword();
+export async function isViewerCookieValue(value: string | undefined): Promise<boolean> {
+  const password = await getClassPassword();
   const username = classUsername();
   if (!password) return false;
   return tokensMatch(value ?? "", sessionToken(username, password));
@@ -50,8 +51,8 @@ export async function requireViewer(req: NextRequest): Promise<NextResponse | nu
   return NextResponse.json({ error: "Necesitas entrar para ver el aula" }, { status: 401 });
 }
 
-export function applyViewerCookie(res: NextResponse, req: NextRequest): void {
-  const password = classPassword();
+export async function applyViewerCookie(res: NextResponse, req: NextRequest): Promise<void> {
+  const password = await getClassPassword();
   if (!password) return;
   res.cookies.set(COOKIE, sessionToken(classUsername(), password), {
     httpOnly: true,

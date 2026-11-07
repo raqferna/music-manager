@@ -1,7 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { applyAdminCookie, passwordsMatchAdmin } from "@/lib/adminAuth";
-import { classPassword, classUsername } from "@/lib/siteConfig";
+import { getClassPassword } from "@/lib/classAccess";
+import { classUsername } from "@/lib/siteConfig";
 import { applyViewerCookie } from "@/lib/viewerAuth";
 
 function passwordsMatch(got: string, expected: string): boolean {
@@ -31,12 +32,12 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  const sharedPassword = classPassword();
+  const sharedPassword = await getClassPassword();
   if (!sharedPassword || username !== classUsername().toLowerCase() || !passwordsMatch(password, sharedPassword)) {
     return NextResponse.json({ error: "Usuario o contraseña incorrectos" }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true, admin: false, viewer: true });
-  applyViewerCookie(res, req);
+  await applyViewerCookie(res, req);
   return res;
 }

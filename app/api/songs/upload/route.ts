@@ -14,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type Uploaded = { file: string; size: number };
+type Uploaded = { file: string; size: number; groupKey: string; variant: string };
 type UploadError = { name: string; error: string };
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -131,7 +131,13 @@ export async function POST(req: NextRequest) {
         const bytes = Buffer.from(await entry.arrayBuffer());
         await fsp.writeFile(outPath, bytes);
 
-        uploaded.push({ file: fileName, size: bytes.length });
+        const parsed = parseAudioBaseName(path.basename(fileName, path.extname(fileName)));
+        uploaded.push({
+          file: fileName,
+          size: bytes.length,
+          groupKey: parsed.groupKey,
+          variant: parsed.variant,
+        });
       } catch (err) {
         errors.push({
           name: originalName,
