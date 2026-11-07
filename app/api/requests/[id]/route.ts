@@ -26,7 +26,10 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         request,
-        message: "Aceptada. Ya está en la cola de descarga.",
+        message:
+          request.kind === "karaoke"
+            ? "Aceptada. Ya está en la lista de karaoke."
+            : "Aceptada. Ya está en la cola de descarga.",
       });
     }
     if (action === "reject") {

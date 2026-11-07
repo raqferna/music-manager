@@ -36,9 +36,10 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = (await req.json()) as { url?: string; urls?: string[] };
+    const body = (await req.json()) as { url?: string; urls?: string[]; folderId?: string | null };
     const rawUrls = body.urls?.length ? body.urls : body.url ? [body.url] : [];
     const urls = rawUrls.map((u) => u.trim()).filter(Boolean);
+    const folderId = body.folderId?.trim() ? body.folderId.trim() : null;
 
     if (urls.length === 0) {
       return NextResponse.json({ error: "Falta la URL de YouTube" }, { status: 400 });
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     let duplicates = 0;
 
     for (const url of urls) {
-      const { job, duplicate } = enqueueYoutubeImportJob(url, dir);
+      const { job, duplicate } = enqueueYoutubeImportJob(url, dir, folderId);
       if (duplicate) {
         duplicates++;
       }

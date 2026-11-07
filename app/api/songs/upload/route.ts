@@ -3,18 +3,14 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { isAudioFilename, maxUploadBytes } from "@/lib/audio";
+import { resolveFolderDir, takenSlots } from "@/lib/library";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
-import {
-  INSTRUMENTAL_SUFFIX,
-  VOCAL_SUFFIX,
-  isAudioFile,
-  parseAudioBaseName,
-} from "@/lib/songGroups";
+import { INSTRUMENTAL_SUFFIX, VOCAL_SUFFIX, parseAudioBaseName } from "@/lib/songGroups";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type Uploaded = { file: string; size: number; groupKey: string; variant: string };
+type Uploaded = { file: string; size: number; groupKey: string; variant: string; folderId: string | null };
 type UploadError = { name: string; error: string };
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -60,31 +56,22 @@ function cleanTitle(raw: string): string {
   return title;
 }
 
-/** Claves "grupo|variante" ya ocupadas en la carpeta, para no pisar canciones. */
-async function takenSlots(dir: string): Promise<Set<string>> {
-  const entries = await fsp.readdir(dir, { withFileTypes: true });
-  const taken = new Set<string>();
-  for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-    const parsed = parseAudioBaseName(path.basename(entry.name, path.extname(entry.name)));
-    taken.add(`${parsed.groupKey.toLowerCase()}|${parsed.variant}`);
-  }
-  return taken;
-}
-
 export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
 
   try {
-    const dir = await getMusicDir();
+    const root = await getMusicDir();
     const formData = await req.formData();
     const entries = formData.getAll("files");
     const titles = formData.getAll("titles").map((t) => (typeof t === "string" ? t : ""));
     const variant: Variant = formData.get("variant") === "instrumental" ? "instrumental" : "vocal";
+    const folderRaw = typeof formData.get("folderId") === "string" ? String(formData.get("folderId")) : "";
+    const folderId = folderRaw.trim() ? folderRaw.trim() : null;
+    const dir = await resolveFolderDir(root, folderId);
     // Con títulos (uno por archivo) el archivo se guarda como "Título (con voz).ext".
     const useTitles = titles.length > 0 && titles.length === entries.length;
-    const taken = useTitles ? await takenSlots(dir) : new Set<string>();
+    const taken = useTitles ? await takenSlots(root) : new Set<string>();
 
     if (entries.length === 0) {
       return NextResponse.json(
@@ -137,6 +124,7 @@ export async function POST(req: NextRequest) {
           size: bytes.length,
           groupKey: parsed.groupKey,
           variant: parsed.variant,
+          folderId,
         });
       } catch (err) {
         errors.push({

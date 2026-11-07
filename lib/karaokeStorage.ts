@@ -106,6 +106,21 @@ export async function listKaraokeVideos(): Promise<KaraokeVideo[]> {
   return videos;
 }
 
+export async function fetchYoutubeKaraokeTitle(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { title?: string };
+    const title = data.title?.trim();
+    return title ? cleanKaraokeTitle(title) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function addYoutubeKaraoke(
   url: string,
   titleRaw?: string | null,

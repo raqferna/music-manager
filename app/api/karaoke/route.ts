@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireKaraokeAdmin } from "@/lib/adminAuth";
 import { isYoutubeUrl } from "@/lib/audio";
-import { cleanKaraokeTitle, parseYoutubeVideoId } from "@/lib/karaoke";
-import { addYoutubeKaraoke, listKaraokeVideos } from "@/lib/karaokeStorage";
+import { parseYoutubeVideoId } from "@/lib/karaoke";
+import { addYoutubeKaraoke, fetchYoutubeKaraokeTitle, listKaraokeVideos } from "@/lib/karaokeStorage";
 import { requireViewer } from "@/lib/viewerAuth";
 
 export const dynamic = "force-dynamic";
-
-async function fetchYoutubeTitle(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      { signal: AbortSignal.timeout(8000) },
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { title?: string };
-    const title = data.title?.trim();
-    return title ? cleanKaraokeTitle(title) : null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest) {
   const denied = await requireViewer(req);
@@ -39,7 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = requireKaraokeAdmin(req);
   if (denied) return denied;
 
   try {
@@ -57,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     let title = body.title?.trim() ?? "";
     if (!title) {
-      title = (await fetchYoutubeTitle(url)) ?? "";
+      title = (await fetchYoutubeKaraokeTitle(url)) ?? "";
     }
     if (!title) {
       return NextResponse.json(

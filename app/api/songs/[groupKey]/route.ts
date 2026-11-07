@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { moveSongToFolder } from "@/lib/library";
 import { getMusicDir } from "@/lib/musicDir";
 import {
   deleteSongGroup,
@@ -53,7 +54,13 @@ export async function PATCH(
   try {
     const { groupKey } = await ctx.params;
     const decoded = decodeURIComponent(groupKey);
-    const body = (await req.json()) as { newGroupKey?: string };
+    const body = (await req.json()) as { newGroupKey?: string; folderId?: string | null };
+    const dir = await getMusicDir();
+
+    if (body.folderId !== undefined && !body.newGroupKey?.trim()) {
+      const group = await moveSongToFolder(dir, decoded, body.folderId);
+      return NextResponse.json({ ok: true, group, folderId: group.folderId });
+    }
 
     if (!body.newGroupKey?.trim()) {
       return NextResponse.json(
@@ -62,13 +69,16 @@ export async function PATCH(
       );
     }
 
-    const dir = await getMusicDir();
     const result = await renameSongGroup(dir, decoded, body.newGroupKey);
+    if (body.folderId !== undefined) {
+      await moveSongToFolder(dir, result.newGroupKey, body.folderId);
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
     const status =
       message === "Canción no encontrada" ||
+      message === "Carpeta no encontrada" ||
       message.startsWith("Ya existe") ||
       message.startsWith("El nombre")
         ? 400

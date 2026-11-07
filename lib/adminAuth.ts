@@ -1,6 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { adminPassword } from "@/lib/siteConfig";
+import { adminPassword, siteMode } from "@/lib/siteConfig";
 
 const COOKIE = "admin_session";
 const MAX_AGE_SEC = 60 * 60 * 24 * 30;
@@ -51,6 +51,25 @@ export function requireAdmin(req: NextRequest): NextResponse | null {
   if (isAdminRequest(req)) return null;
   return NextResponse.json(
     { error: "Solo el admin puede añadir o modificar canciones" },
+    { status: 401 },
+  );
+}
+
+/** Cookie de admin de verdad. En el aula no vale el modo abierto del catálogo. */
+export function isStrictAdminRequest(req: NextRequest): boolean {
+  const password = adminPassword();
+  if (!password) return false;
+  const got = req.cookies.get(COOKIE)?.value ?? "";
+  if (!got) return false;
+  return tokensMatch(got, sessionToken(password));
+}
+
+/** Altas de karaoke: en el aula solo el admin; en el catálogo, la misma regla que el resto. */
+export function requireKaraokeAdmin(req: NextRequest): NextResponse | null {
+  const ok = siteMode() === "aula" ? isStrictAdminRequest(req) : isAdminRequest(req);
+  if (ok) return null;
+  return NextResponse.json(
+    { error: "Solo el admin puede añadir o borrar karaokes" },
     { status: 401 },
   );
 }

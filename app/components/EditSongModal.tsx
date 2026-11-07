@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { downloadAudioFile, isYoutubeUrl } from "@/lib/audio";
-import type { SongGroup } from "@/lib/types";
+import type { LibraryFolder, SongGroup } from "@/lib/types";
+import FolderSelect from "./FolderSelect";
 import { Download, Link, Loader, Mic, X } from "./icons";
 
 type Props = {
   group: SongGroup;
+  folders?: LibraryFolder[];
   onClose: () => void;
   onSaved: (groupKey: string) => void;
   onUpdated: (groupKey: string) => void;
 };
 
-export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Props) {
+export default function EditSongModal({ group, folders = [], onClose, onSaved, onUpdated }: Props) {
   const [name, setName] = useState(group.groupKey);
+  const [folderId, setFolderId] = useState<string | null>(group.folderId);
   const [vocalUrl, setVocalUrl] = useState("");
   const [loadingRename, setLoadingRename] = useState(false);
   const [loadingVocal, setLoadingVocal] = useState(false);
@@ -28,7 +31,10 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
   async function handleRename(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed || trimmed === group.groupKey) {
+    if (!trimmed) {
+      return;
+    }
+    if (trimmed === group.groupKey && folderId === group.folderId) {
       return;
     }
 
@@ -40,7 +46,7 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
       const res = await fetch(`/api/songs/${encodeURIComponent(group.groupKey)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newGroupKey: trimmed }),
+        body: JSON.stringify({ newGroupKey: trimmed, folderId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -163,12 +169,22 @@ export default function EditSongModal({ group, onClose, onSaved, onUpdated }: Pr
               disabled={busy}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-400/50 disabled:opacity-60"
             />
+            <FolderSelect
+              folders={folders}
+              value={folderId}
+              onChange={setFolderId}
+              disabled={busy}
+            />
             <button
               type="submit"
-              disabled={busy || !name.trim() || name.trim() === group.groupKey}
+              disabled={
+                busy ||
+                !name.trim() ||
+                (name.trim() === group.groupKey && folderId === group.folderId)
+              }
               className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/80 hover:bg-white/5 disabled:opacity-50"
             >
-              {loadingRename ? "Guardando…" : "Guardar nombre"}
+              {loadingRename ? "Guardando…" : "Guardar"}
             </button>
           </form>
         </section>

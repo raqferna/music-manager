@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isYoutubeUrl } from "@/lib/audio";
+import type { LibraryFolder } from "@/lib/types";
+import FolderSelect from "./FolderSelect";
 import { Link, Loader } from "./icons";
 
 type Props = {
   onImported: (groupKey: string) => void | Promise<void>;
+  folders?: LibraryFolder[];
 };
 
 type JobStatus = "queued" | "pending" | "running" | "completed" | "failed";
@@ -95,8 +98,9 @@ function isProcessing(status: JobStatus): boolean {
   return status === "queued" || status === "pending" || status === "running";
 }
 
-export default function YoutubeImporter({ onImported }: Props) {
+export default function YoutubeImporter({ onImported, folders = [] }: Props) {
   const [url, setUrl] = useState("");
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeJob, setActiveJob] = useState<JobPayload | null>(null);
   const [queuedJobs, setQueuedJobs] = useState<JobPayload[]>([]);
@@ -265,7 +269,10 @@ export default function YoutubeImporter({ onImported }: Props) {
       const res = await fetch("/api/songs/import-youtube", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(urls.length === 1 ? { url: urls[0] } : { urls }),
+        body: JSON.stringify({
+          ...(urls.length === 1 ? { url: urls[0] } : { urls }),
+          folderId,
+        }),
       });
 
       const data = (await res.json()) as JobPayload & {
@@ -311,6 +318,13 @@ export default function YoutubeImporter({ onImported }: Props) {
           rows={2}
           disabled={submitting}
           className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-cyan-400/50 focus:bg-white/10 disabled:opacity-60"
+        />
+        <FolderSelect
+          folders={folders}
+          value={folderId}
+          onChange={setFolderId}
+          disabled={submitting}
+          label="Guardar en"
         />
         <button
           type="submit"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { isYoutubeUrl } from "@/lib/audio";
+import { resolveGroupDir } from "@/lib/library";
 import { getMusicDir } from "@/lib/musicDir";
 import { downloadVocalFromYoutube } from "@/lib/vocalDownload";
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const dir = await getMusicDir();
+    const dir = await resolveGroupDir(await getMusicDir(), groupKey);
     const result = await downloadVocalFromYoutube(url, dir, groupKey);
 
     return NextResponse.json(result);

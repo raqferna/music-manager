@@ -36,14 +36,18 @@ export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => null)) as { groupKeys?: string[] } | null;
+  const body = (await req.json().catch(() => null)) as {
+    groupKeys?: string[];
+    folderId?: string | null;
+  } | null;
   const groupKeys = (body?.groupKeys ?? []).map((key) => key.trim()).filter(Boolean);
+  const folderId = body?.folderId?.trim() ? body.folderId.trim() : null;
   if (groupKeys.length === 0) {
     return NextResponse.json({ error: "No has seleccionado ninguna canción" }, { status: 400 });
   }
 
   try {
-    const result = await copyCatalogGroups(groupKeys);
+    const result = await copyCatalogGroups(groupKeys, folderId);
     return NextResponse.json({
       ok: true,
       ...result,

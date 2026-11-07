@@ -10,11 +10,19 @@ export type Song = {
   hasLyrics: boolean;
 };
 
+export type LibraryFolder = {
+  /** Nombre de la carpeta en disco. */
+  id: string;
+  name: string;
+};
+
 /** Canción agrupada: instrumental y/o voz comparten letra PDF. */
 export type SongGroup = {
   /** Clave compartida para PDF y emparejamiento de variantes. */
   groupKey: string;
   title: string;
+  /** Carpeta del usuario; null = raíz (sin carpeta). */
+  folderId: string | null;
   instrumentalFile: string | null;
   vocalFile: string | null;
   hasInstrumental: boolean;

@@ -1,17 +1,18 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { safeBasename } from "@/lib/musicDir";
+import {
+  findLibraryGroup,
+  folderDir,
+  resolveLibraryFile,
+} from "@/lib/library";
 import {
   deleteLyricsSidecar,
   lyricsPdfPath,
   lyricsSidecarPath,
   pdfExists,
 } from "@/lib/lyricsStorage";
-import {
-  buildSongGroups,
-  isAudioFile,
-  parseAudioBaseName,
-} from "@/lib/songGroups";
+import { safeBasename } from "@/lib/musicDir";
+import { parseAudioBaseName } from "@/lib/songGroups";
 import type { SongGroup } from "@/lib/types";
 
 export type DeleteScope = "all" | "instrumental" | "vocal" | "lyrics";
@@ -31,37 +32,23 @@ export function validateGroupKey(name: string): string {
 }
 
 async function findGroup(musicDir: string, groupKey: string): Promise<SongGroup | null> {
-  const key = validateGroupKey(groupKey);
-  const entries = await fsp.readdir(musicDir, { withFileTypes: true });
-
-  const pdfBaseNames = new Set(
-    entries
-      .filter((e) => e.isFile() && path.extname(e.name).toLowerCase() === ".pdf")
-      .map((e) => path.basename(e.name, path.extname(e.name)).toLowerCase()),
-  );
-
-  const raw = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-    const baseName = path.basename(entry.name, path.extname(entry.name));
-    const stat = await fsp.stat(path.join(musicDir, entry.name));
-    raw.push({
-      file: entry.name,
-      baseName,
-      size: stat.size,
-      modifiedAt: stat.mtimeMs,
-      parsed: parseAudioBaseName(baseName),
-    });
-  }
-
-  const groups = buildSongGroups(raw, pdfBaseNames);
-  return groups.find((g) => g.groupKey === key) ?? null;
+  return findLibraryGroup(musicDir, validateGroupKey(groupKey));
 }
 
 async function unlinkIfExists(filePath: string): Promise<boolean> {
   try {
     await fsp.unlink(filePath);
     return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
+}
+
+async function unlinkLibraryFile(musicDir: string, fileName: string): Promise<boolean> {
+  try {
+    const filePath = await resolveLibraryFile(musicDir, fileName);
+    return unlinkIfExists(filePath);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw err;
@@ -78,38 +65,39 @@ export async function deleteSongGroup(
     throw new Error("Canción no encontrada");
   }
 
+  const songDir = folderDir(musicDir, group.folderId);
   const deleted: string[] = [];
 
   if (scope === "all" || scope === "instrumental") {
     if (group.instrumentalFile) {
-      await unlinkIfExists(path.join(musicDir, safeBasename(group.instrumentalFile)));
-      deleted.push(group.instrumentalFile);
+      if (await unlinkLibraryFile(musicDir, group.instrumentalFile)) {
+        deleted.push(group.instrumentalFile);
+      }
     }
   }
 
   if (scope === "all" || scope === "vocal") {
     if (group.vocalFile) {
-      await unlinkIfExists(path.join(musicDir, safeBasename(group.vocalFile)));
-      deleted.push(group.vocalFile);
+      if (await unlinkLibraryFile(musicDir, group.vocalFile)) {
+        deleted.push(group.vocalFile);
+      }
     }
   }
 
   if (scope === "all") {
     for (const stemFile of Object.values(group.stemFiles)) {
       if (!stemFile) continue;
-      if (await unlinkIfExists(path.join(musicDir, safeBasename(stemFile)))) {
+      if (await unlinkLibraryFile(musicDir, stemFile)) {
         deleted.push(stemFile);
       }
     }
   }
 
   if (scope === "all" || scope === "lyrics") {
-    const pdfPath = lyricsPdfPath(musicDir, group.groupKey);
-    if (await unlinkIfExists(pdfPath)) {
+    if (await unlinkIfExists(lyricsPdfPath(songDir, group.groupKey))) {
       deleted.push(`${group.groupKey}.pdf`);
     }
-    const sidecarPath = lyricsSidecarPath(musicDir, group.groupKey);
-    if (await unlinkIfExists(sidecarPath)) {
+    if (await unlinkIfExists(lyricsSidecarPath(songDir, group.groupKey))) {
       deleted.push(`${group.groupKey}.lyrics.txt`);
     }
   }
@@ -141,14 +129,15 @@ export async function renameSongGroup(
     throw new Error("Ya existe otra canción con ese nombre");
   }
 
+  const songDir = folderDir(musicDir, group.folderId);
   const renamed: string[] = [];
 
   async function renameAudioFile(oldName: string, newBaseName: string): Promise<void> {
     const safeOld = safeBasename(oldName);
     const ext = path.extname(safeOld);
     const newName = `${newBaseName}${ext}`;
-    const oldPath = path.join(musicDir, safeOld);
-    const newPath = path.join(musicDir, newName);
+    const oldPath = path.join(songDir, safeOld);
+    const newPath = path.join(songDir, newName);
 
     try {
       await fsp.access(newPath);
@@ -178,18 +167,18 @@ export async function renameSongGroup(
     await renameAudioFile(group.vocalFile, `${newGroupKey} (con voz)`);
   }
 
-  const hasPdf = await pdfExists(musicDir, group.groupKey);
+  const hasPdf = await pdfExists(songDir, group.groupKey);
   if (hasPdf) {
-    const oldPdf = lyricsPdfPath(musicDir, group.groupKey);
-    const newPdf = lyricsPdfPath(musicDir, newGroupKey);
+    const oldPdf = lyricsPdfPath(songDir, group.groupKey);
+    const newPdf = lyricsPdfPath(songDir, newGroupKey);
     await fsp.rename(oldPdf, newPdf);
     renamed.push(`${group.groupKey}.pdf → ${newGroupKey}.pdf`);
   }
 
   try {
-    await fsp.access(lyricsSidecarPath(musicDir, group.groupKey));
-    const oldSidecar = lyricsSidecarPath(musicDir, group.groupKey);
-    const newSidecar = lyricsSidecarPath(musicDir, newGroupKey);
+    await fsp.access(lyricsSidecarPath(songDir, group.groupKey));
+    const oldSidecar = lyricsSidecarPath(songDir, group.groupKey);
+    const newSidecar = lyricsSidecarPath(songDir, newGroupKey);
     await fsp.rename(oldSidecar, newSidecar);
     renamed.push(`${group.groupKey}.lyrics.txt → ${newGroupKey}.lyrics.txt`);
   } catch {

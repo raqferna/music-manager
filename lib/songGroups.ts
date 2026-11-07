@@ -112,6 +112,7 @@ export function buildSongGroups(
     groups.push({
       groupKey,
       title: toTitle(groupKey),
+      folderId: null,
       instrumentalFile: bucket.instrumentalFile,
       vocalFile: bucket.vocalFile,
       hasInstrumental: Boolean(bucket.instrumentalFile),

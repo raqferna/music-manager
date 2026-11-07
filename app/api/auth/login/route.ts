@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { applyAdminCookie, passwordsMatchAdmin } from "@/lib/adminAuth";
+import { applyAdminCookie, clearAdminCookie, passwordsMatchAdmin } from "@/lib/adminAuth";
 import { getClassPassword } from "@/lib/classAccess";
 import { classUsername } from "@/lib/siteConfig";
 import { applyViewerCookie } from "@/lib/viewerAuth";
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true, admin: false, viewer: true });
+  clearAdminCookie(res, req);
   await applyViewerCookie(res, req);
   return res;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { SongGroup } from "@/lib/types";
 
-type RequestKind = "youtube" | "vocal" | "instrumental";
+type RequestKind = "youtube" | "vocal" | "instrumental" | "karaoke";
 type DownloadRequest = {
   id: string;
   kind: RequestKind;
@@ -16,27 +16,30 @@ type DownloadRequest = {
 function requestLabel(item: DownloadRequest): string {
   if (item.kind === "youtube") return "Canción nueva";
   if (item.kind === "vocal") return "Versión con voz";
+  if (item.kind === "karaoke") return "Karaoke";
   return "Versión sin voz";
 }
 
 type Props = {
   admin: boolean;
   groups: SongGroup[];
+  onAccepted?: () => void;
 };
 
 const KIND_OPTIONS: { id: RequestKind; label: string }[] = [
   { id: "youtube", label: "Canción nueva" },
+  { id: "karaoke", label: "Karaoke (YouTube)" },
   { id: "vocal", label: "Con voz, de una que ya está" },
   { id: "instrumental", label: "Sin voz, de una que ya está" },
 ];
 
 function statusText(status: DownloadRequest["status"]): string {
   if (status === "pending") return "Pendiente";
-  if (status === "accepted") return "Aceptada, en cola";
+  if (status === "accepted") return "Aceptada";
   return "Rechazada";
 }
 
-export default function DownloadRequests({ admin, groups }: Props) {
+export default function DownloadRequests({ admin, groups, onAccepted }: Props) {
   const [items, setItems] = useState<DownloadRequest[]>([]);
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<RequestKind>("youtube");
@@ -106,6 +109,7 @@ export default function DownloadRequests({ admin, groups }: Props) {
       }
       setMessage(data?.message ?? "Listo");
       await reload();
+      onAccepted?.();
     } catch {
       setError("No se pudo actualizar");
     } finally {
@@ -123,8 +127,8 @@ export default function DownloadRequests({ admin, groups }: Props) {
           <p className="text-sm text-white/85">{admin ? "Peticiones de descarga" : "Pedir una versión"}</p>
           <p className="text-xs text-white/45">
             {admin
-              ? "Si aceptas, entra en la cola. Si no, no se descarga."
-              : "Pide una canción o una versión. No se descarga hasta que se acepte."}
+              ? "Si aceptas, las canciones entran en cola y el karaoke va a la lista."
+              : "Pide una canción, un karaoke o una versión. No se añade hasta que se acepte."}
           </p>
         </div>
         {admin ? (
@@ -169,7 +173,7 @@ export default function DownloadRequests({ admin, groups }: Props) {
               className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-base text-white outline-none focus:border-amber-200/40 sm:text-sm"
             />
           ) : null}
-          {kind !== "youtube" ? (
+          {kind !== "youtube" && kind !== "karaoke" ? (
             <select
               value={groupKey}
               onChange={(e) => setGroupKey(e.target.value)}
@@ -186,7 +190,7 @@ export default function DownloadRequests({ admin, groups }: Props) {
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Nota, si hace falta"
+            placeholder={kind === "karaoke" ? "Título (opcional)" : "Nota, si hace falta"}
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-base text-white outline-none focus:border-amber-200/40 sm:text-sm"
           />
           <button

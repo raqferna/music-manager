@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { deleteLyricsSidecar, lyricsPdfPath } from "@/lib/lyricsStorage";
 import { isPdfFilename, looksLikePdf, maxLyricsPdfBytes } from "@/lib/pdf";
+import { findLibraryGroup, folderDir } from "@/lib/library";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
 import { siteMode } from "@/lib/siteConfig";
 import { requireViewer } from "@/lib/viewerAuth";
@@ -47,7 +48,9 @@ export async function POST(req: NextRequest) {
     }
 
     const baseName = safeBasename(baseRaw);
-    const dir = await getMusicDir();
+    const root = await getMusicDir();
+    const group = await findLibraryGroup(root, baseName);
+    const dir = group ? folderDir(root, group.folderId) : root;
     await fsp.writeFile(lyricsPdfPath(dir, baseName), bytes);
     await deleteLyricsSidecar(dir, baseName);
 

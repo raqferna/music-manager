@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireKaraokeAdmin } from "@/lib/adminAuth";
 import { deleteKaraokeVideo } from "@/lib/karaokeStorage";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const denied = requireAdmin(req);
+  const denied = requireKaraokeAdmin(req);
   if (denied) return denied;
 
   try {

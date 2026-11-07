@@ -1,10 +1,8 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/adminAuth";
+import { loadLibrary } from "@/lib/library";
 import { getMusicDir } from "@/lib/musicDir";
 import { requireViewer } from "@/lib/viewerAuth";
-import { buildSongGroups, isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -14,31 +12,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const dir = await getMusicDir();
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const { groups, folders } = await loadLibrary(dir);
 
-    const pdfBaseNames = new Set(
-      entries
-        .filter((e) => e.isFile() && path.extname(e.name).toLowerCase() === ".pdf")
-        .map((e) => path.basename(e.name, path.extname(e.name)).toLowerCase()),
-    );
-
-    const raw = [];
-    for (const entry of entries) {
-      if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-      const baseName = path.basename(entry.name, path.extname(entry.name));
-      const stat = await fs.stat(path.join(dir, entry.name));
-      raw.push({
-        file: entry.name,
-        baseName,
-        size: stat.size,
-        modifiedAt: stat.mtimeMs,
-        parsed: parseAudioBaseName(baseName),
-      });
-    }
-
-    const groups = buildSongGroups(raw, pdfBaseNames);
-
-    return NextResponse.json({ dir: isAdminRequest(req) ? dir : "", groups });
+    return NextResponse.json({
+      dir: isAdminRequest(req) ? dir : "",
+      groups,
+      folders,
+    });
   } catch (err) {
     console.error("/api/songs error", err);
     return NextResponse.json(

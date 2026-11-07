@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { generateInstrumentalFromVocal, type InstrumentalGenerateResult } from "@/lib/instrumentalGenerate";
+import { resolveFolderDir, resolveGroupDir } from "@/lib/library";
 import { PREEMPTED_ERROR } from "@/lib/pythonJob";
 import { generateStemsFromSource, type StemGenerateResult } from "@/lib/stemGenerate";
 import { importSongFromYoutube, type YoutubeImportResult } from "@/lib/youtubeImport";
@@ -20,6 +21,7 @@ export type YoutubeJob = {
   type: ProcessingJobType;
   url?: string;
   groupKey?: string;
+  folderId?: string | null;
   status: YoutubeJobStatus;
   createdAt: number;
   updatedAt: number;
@@ -153,18 +155,22 @@ async function executeJob(
 ): Promise<ProcessingJobResult> {
   if (job.type === "add-vocal") {
     if (!job.groupKey || !job.url) throw new Error("Faltan la canción o el enlace");
-    return downloadVocalFromYoutube(job.url, musicDir, job.groupKey);
+    const workDir = await resolveGroupDir(musicDir, job.groupKey);
+    return downloadVocalFromYoutube(job.url, workDir, job.groupKey);
   }
   if (job.type === "add-instrumental") {
     if (!job.groupKey) throw new Error("Falta groupKey");
-    return generateInstrumentalFromVocal(musicDir, job.groupKey, signal);
+    const workDir = await resolveGroupDir(musicDir, job.groupKey);
+    return generateInstrumentalFromVocal(workDir, job.groupKey, signal);
   }
   if (job.type === "separate-stems") {
     if (!job.groupKey) throw new Error("Falta groupKey");
-    return generateStemsFromSource(musicDir, job.groupKey, signal);
+    const workDir = await resolveGroupDir(musicDir, job.groupKey);
+    return generateStemsFromSource(workDir, job.groupKey, signal);
   }
   if (!job.url) throw new Error("Falta URL");
-  return importSongFromYoutube(job.url, musicDir, signal);
+  const workDir = await resolveFolderDir(musicDir, job.folderId);
+  return importSongFromYoutube(job.url, workDir, signal);
 }
 
 function runJob(job: YoutubeJob, musicDir: string) {
@@ -261,7 +267,11 @@ function enqueueJob(
   return { job, duplicate: false };
 }
 
-export function enqueueYoutubeImportJob(url: string, musicDir: string): { job: YoutubeJob; duplicate: boolean } {
+export function enqueueYoutubeImportJob(
+  url: string,
+  musicDir: string,
+  folderId?: string | null,
+): { job: YoutubeJob; duplicate: boolean } {
   pruneOldJobs();
 
   const duplicate = findDuplicateJob("youtube-import", url);
@@ -273,6 +283,7 @@ export function enqueueYoutubeImportJob(url: string, musicDir: string): { job: Y
     id: randomUUID(),
     type: "youtube-import",
     url,
+    folderId: folderId ?? null,
     status: "queued",
     createdAt: Date.now(),
     updatedAt: Date.now(),

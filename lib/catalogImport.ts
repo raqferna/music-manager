@@ -1,8 +1,9 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
+import { findLibraryGroup, folderDir, loadLibrary, resolveFolderDir } from "@/lib/library";
 import { lyricsPdfPath, lyricsSidecarPath } from "@/lib/lyricsStorage";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
-import { buildSongGroups, isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
+import { isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
 import type { SongGroup } from "@/lib/types";
 
 function env(name: string): string {
@@ -30,28 +31,8 @@ export async function catalogIsAvailable(): Promise<boolean> {
 }
 
 export async function loadSongGroups(dir: string): Promise<SongGroup[]> {
-  const entries = await fsp.readdir(dir, { withFileTypes: true });
-  const pdfBaseNames = new Set(
-    entries
-      .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".pdf")
-      .map((entry) => path.basename(entry.name, path.extname(entry.name)).toLowerCase()),
-  );
-
-  const raw = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-    const baseName = path.basename(entry.name, path.extname(entry.name));
-    const stat = await fsp.stat(path.join(dir, entry.name));
-    raw.push({
-      file: entry.name,
-      baseName,
-      size: stat.size,
-      modifiedAt: stat.mtimeMs,
-      parsed: parseAudioBaseName(baseName),
-    });
-  }
-
-  return buildSongGroups(raw, pdfBaseNames);
+  const { groups } = await loadLibrary(dir);
+  return groups;
 }
 
 function insideDir(dir: string, fileName: string): string {
@@ -63,8 +44,9 @@ function insideDir(dir: string, fileName: string): string {
   return target;
 }
 
-async function filesForGroup(dir: string, groupKey: string): Promise<string[]> {
-  const key = safeBasename(groupKey);
+async function filesForGroup(root: string, group: SongGroup): Promise<string[]> {
+  const dir = folderDir(root, group.folderId);
+  const key = safeBasename(group.groupKey);
   const entries = await fsp.readdir(dir, { withFileTypes: true });
   const names: string[] = [];
 
@@ -90,7 +72,10 @@ async function filesForGroup(dir: string, groupKey: string): Promise<string[]> {
   return names;
 }
 
-export async function copyCatalogGroups(groupKeys: string[]): Promise<{
+export async function copyCatalogGroups(
+  groupKeys: string[],
+  destFolderId?: string | null,
+): Promise<{
   copied: string[];
   files: number;
 }> {
@@ -99,17 +84,22 @@ export async function copyCatalogGroups(groupKeys: string[]): Promise<{
     throw new Error("El catálogo personal no está conectado");
   }
 
-  const dest = await getMusicDir();
-  const available = new Set((await loadSongGroups(source)).map((group) => group.groupKey));
+  const destRoot = await getMusicDir();
+  const destDir = await resolveFolderDir(destRoot, destFolderId ?? null);
+  const sourceGroups = await loadSongGroups(source);
+  const available = new Map(sourceGroups.map((group) => [group.groupKey, group]));
   const copied: string[] = [];
   let files = 0;
 
   for (const raw of groupKeys) {
     const groupKey = safeBasename(raw.trim());
-    if (!available.has(groupKey)) continue;
+    const group = available.get(groupKey);
+    if (!group) continue;
+    if (await findLibraryGroup(destRoot, groupKey)) continue;
 
-    for (const name of await filesForGroup(source, groupKey)) {
-      await fsp.copyFile(insideDir(source, name), insideDir(dest, name));
+    const sourceDir = folderDir(source, group.folderId);
+    for (const name of await filesForGroup(source, group)) {
+      await fsp.copyFile(insideDir(sourceDir, name), insideDir(destDir, name));
       files += 1;
     }
     copied.push(groupKey);

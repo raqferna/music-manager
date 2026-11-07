@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { isYoutubeUrl } from "@/lib/audio";
+import { addYoutubeKaraoke, fetchYoutubeKaraokeTitle } from "@/lib/karaokeStorage";
+import { loadLibrary } from "@/lib/library";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
-import { buildSongGroups, isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
 import type { SongGroup } from "@/lib/types";
 import {
   enqueueInstrumentalJob,
@@ -11,7 +12,7 @@ import {
   enqueueYoutubeImportJob,
 } from "@/lib/youtubeJobs";
 
-export type RequestKind = "youtube" | "vocal" | "instrumental";
+export type RequestKind = "youtube" | "vocal" | "instrumental" | "karaoke";
 export type RequestStatus = "pending" | "accepted" | "rejected";
 
 export type DownloadRequest = {
@@ -65,38 +66,20 @@ async function writeAll(items: DownloadRequest[]): Promise<void> {
 }
 
 async function loadGroups(): Promise<SongGroup[]> {
-  const dir = await getMusicDir();
-  const entries = await fsp.readdir(dir, { withFileTypes: true });
-  const pdfBaseNames = new Set(
-    entries
-      .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".pdf")
-      .map((entry) => path.basename(entry.name, path.extname(entry.name)).toLowerCase()),
-  );
-  const raw = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-    const baseName = path.basename(entry.name, path.extname(entry.name));
-    const stat = await fsp.stat(path.join(dir, entry.name));
-    raw.push({
-      file: entry.name,
-      baseName,
-      size: stat.size,
-      modifiedAt: stat.mtimeMs,
-      parsed: parseAudioBaseName(baseName),
-    });
-  }
-  return buildSongGroups(raw, pdfBaseNames);
+  const { groups } = await loadLibrary(await getMusicDir());
+  return groups;
 }
 
 function samePending(current: DownloadRequest, next: DownloadRequest): boolean {
   if (current.status !== "pending" || current.kind !== next.kind) return false;
-  if (next.kind === "youtube") return current.url === next.url;
+  if (next.kind === "youtube" || next.kind === "karaoke") return current.url === next.url;
   return current.groupKey === next.groupKey;
 }
 
 export function requestLabel(item: DownloadRequest): string {
   if (item.kind === "youtube") return "Canción nueva";
   if (item.kind === "vocal") return "Versión con voz";
+  if (item.kind === "karaoke") return "Karaoke";
   return "Versión sin voz";
 }
 
@@ -117,7 +100,7 @@ export async function createDownloadRequest(input: {
 }): Promise<DownloadRequest> {
   return withLock(async () => {
     const kind = input.kind;
-    if (kind !== "youtube" && kind !== "vocal" && kind !== "instrumental") {
+    if (kind !== "youtube" && kind !== "vocal" && kind !== "instrumental" && kind !== "karaoke") {
       throw new Error("Tipo de petición no válido");
     }
 
@@ -125,16 +108,16 @@ export async function createDownloadRequest(input: {
     const url = (input.url ?? "").trim();
     const groupKey = (input.groupKey ?? "").trim();
 
-    if ((kind === "youtube" || kind === "vocal") && !isYoutubeUrl(url)) {
+    if ((kind === "youtube" || kind === "vocal" || kind === "karaoke") && !isYoutubeUrl(url)) {
       throw new Error("Hace falta un enlace de YouTube válido");
     }
-    if (kind !== "youtube" && !groupKey) {
+    if (kind !== "youtube" && kind !== "karaoke" && !groupKey) {
       throw new Error("Elige la canción");
     }
 
-    const groups = kind === "youtube" ? [] : await loadGroups();
+    const groups = kind === "youtube" || kind === "karaoke" ? [] : await loadGroups();
     const group = groups.find((item) => item.groupKey === groupKey) ?? null;
-    if (kind !== "youtube" && !group) {
+    if (kind !== "youtube" && kind !== "karaoke" && !group) {
       throw new Error("Esa canción no está en el aula");
     }
     if (kind === "vocal" && group?.hasVocal) {
@@ -192,11 +175,19 @@ export async function acceptDownloadRequest(id: string): Promise<DownloadRequest
     }
 
     const dir = await getMusicDir();
-    const groups = item.kind === "youtube" ? [] : await loadGroups();
+    const groups = item.kind === "youtube" || item.kind === "karaoke" ? [] : await loadGroups();
     const group = groups.find((entry) => entry.groupKey === item.groupKey) ?? null;
 
-    let jobId: string;
-    if (item.kind === "youtube") {
+    let jobId: string | null = null;
+    if (item.kind === "karaoke") {
+      if (!item.url || !isYoutubeUrl(item.url)) throw new Error("El enlace ya no es válido");
+      let title = item.note.trim();
+      if (!title) title = (await fetchYoutubeKaraokeTitle(item.url)) ?? "";
+      if (!title) {
+        throw new Error("Ese karaoke no tiene título. Pídelo otra vez con un título.");
+      }
+      await addYoutubeKaraoke(item.url, title);
+    } else if (item.kind === "youtube") {
       if (!item.url || !isYoutubeUrl(item.url)) throw new Error("El enlace ya no es válido");
       jobId = enqueueYoutubeImportJob(item.url, dir).job.id;
     } else if (item.kind === "vocal") {

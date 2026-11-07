@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { LibraryFolder } from "@/lib/types";
+import FolderSelect from "./FolderSelect";
 import { X } from "./icons";
 
 type CatalogSong = {
@@ -12,11 +14,12 @@ type CatalogSong = {
 };
 
 type Props = {
+  folders?: LibraryFolder[];
   onClose: () => void;
   onImported: () => void;
 };
 
-export default function CatalogImportModal({ onClose, onImported }: Props) {
+export default function CatalogImportModal({ folders = [], onClose, onImported }: Props) {
   const [songs, setSongs] = useState<CatalogSong[]>([]);
   const [available, setAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -25,6 +28,7 @@ export default function CatalogImportModal({ onClose, onImported }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(null);
 
   useEffect(() => {
     void fetch("/api/admin/catalog", { cache: "no-store" })
@@ -61,7 +65,7 @@ export default function CatalogImportModal({ onClose, onImported }: Props) {
       const res = await fetch("/api/admin/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupKeys: [...selected] }),
+        body: JSON.stringify({ groupKeys: [...selected], folderId }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
       if (!res.ok) {
@@ -137,6 +141,15 @@ export default function CatalogImportModal({ onClose, onImported }: Props) {
 
         {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
         {message ? <p className="mt-3 text-sm text-emerald-200">{message}</p> : null}
+
+        <FolderSelect
+          folders={folders}
+          value={folderId}
+          onChange={setFolderId}
+          disabled={busy}
+          label="Copiar a"
+          className="mt-3"
+        />
 
         <button
           type="button"

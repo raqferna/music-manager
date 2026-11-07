@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { siteMode } from "@/lib/siteConfig";
 import { requireViewer } from "@/lib/viewerAuth";
+import { findLibraryGroup, folderDir } from "@/lib/library";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
 import { generatePdfFromText } from "@/lib/lyricsPdf";
 import {
@@ -46,7 +47,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Falta baseName" }, { status: 400 });
     }
 
-    const dir = await getMusicDir();
+    const root = await getMusicDir();
+    const group = await findLibraryGroup(root, baseName);
+    const dir = group ? folderDir(root, group.folderId) : root;
     const hasPdf = await pdfExists(dir, baseName);
     const sidecar = await readLyricsSidecar(dir, baseName);
 
@@ -76,7 +79,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta baseName" }, { status: 400 });
     }
     const baseName = safeBasename(body.baseName);
-    const dir = await getMusicDir();
+    const root = await getMusicDir();
+    const group = await findLibraryGroup(root, baseName);
+    const dir = group ? folderDir(root, group.folderId) : root;
     const outPath = lyricsPdfPath(dir, baseName);
 
     let bytes: Uint8Array;

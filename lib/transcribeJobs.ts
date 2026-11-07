@@ -1,7 +1,8 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { safeBasename } from "@/lib/musicDir";
+import { folderDir } from "@/lib/library";
 import { transcribeLyricsFromAudio, type TranscribeResult } from "@/lib/lyricsTranscribe";
+import { safeBasename } from "@/lib/musicDir";
 import { resolvePlaybackFile } from "@/lib/songGroups";
 import type { SongGroup } from "@/lib/types";
 
@@ -80,7 +81,7 @@ export function resolveVocalAudioPath(
   const safe = safeBasename(audioFile);
   return {
     audioFile: safe,
-    audioPath: path.join(musicDir, safe),
+    audioPath: path.join(folderDir(musicDir, group.folderId), safe),
   };
 }
 

@@ -2,7 +2,7 @@ import { createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireKaraokeAdmin } from "@/lib/adminAuth";
 import { isVideoFilename, maxKaraokeBytes } from "@/lib/karaoke";
 import { saveKaraokeVideoFile } from "@/lib/karaokeStorage";
 
@@ -18,7 +18,7 @@ async function writeFileFromUpload(file: File, outPath: string): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = requireKaraokeAdmin(req);
   if (denied) return denied;
 
   try {

@@ -1,45 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { findLibraryGroup } from "@/lib/library";
 import { getMusicDir } from "@/lib/musicDir";
-import { buildSongGroups, isAudioFile, parseAudioBaseName } from "@/lib/songGroups";
 import {
   enqueueInstrumentalJob,
   getQueuePosition,
   jobToPayload,
 } from "@/lib/youtubeJobs";
-import fs from "node:fs/promises";
-import path from "node:path";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-async function findGroup(groupKey: string) {
-  const dir = await getMusicDir();
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  const pdfBaseNames = new Set(
-    entries
-      .filter((e) => e.isFile() && path.extname(e.name).toLowerCase() === ".pdf")
-      .map((e) => path.basename(e.name, path.extname(e.name)).toLowerCase()),
-  );
-
-  const raw = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFile(entry.name)) continue;
-    const baseName = path.basename(entry.name, path.extname(entry.name));
-    const stat = await fs.stat(path.join(dir, entry.name));
-    raw.push({
-      file: entry.name,
-      baseName,
-      size: stat.size,
-      modifiedAt: stat.mtimeMs,
-      parsed: parseAudioBaseName(baseName),
-    });
-  }
-
-  const groups = buildSongGroups(raw, pdfBaseNames);
-  return { dir, group: groups.find((g) => g.groupKey === groupKey) ?? null };
-}
 
 export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
@@ -53,7 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta el identificador de la canción" }, { status: 400 });
     }
 
-    const { dir, group } = await findGroup(groupKey);
+    const dir = await getMusicDir();
+    const group = await findLibraryGroup(dir, groupKey);
     if (!group) {
       return NextResponse.json({ error: "Canción no encontrada" }, { status: 404 });
     }

@@ -2,10 +2,13 @@
 
 import { useRef, useState } from "react";
 import { AUDIO_ACCEPT, isAudioFilename } from "@/lib/audio";
+import type { LibraryFolder } from "@/lib/types";
+import FolderSelect from "./FolderSelect";
 import { Upload, X } from "./icons";
 
 type Props = {
   onUploaded: (files: string[]) => void | Promise<void>;
+  folders?: LibraryFolder[];
   compact?: boolean;
 };
 
@@ -20,12 +23,13 @@ function titleFromFilename(name: string): string {
   return stem.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export default function MusicUploader({ onUploaded, compact = false }: Props) {
+export default function MusicUploader({ onUploaded, folders = [], compact = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(1);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<Pending[]>([]);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [variant, setVariant] = useState<Variant>("vocal");
   const [removeVocals, setRemoveVocals] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export default function MusicUploader({ onUploaded, compact = false }: Props) {
     try {
       const formData = new FormData();
       formData.append("variant", variant);
+      if (folderId) formData.append("folderId", folderId);
       for (const item of pending) {
         formData.append("files", item.file);
         formData.append("titles", item.title.trim());
@@ -240,6 +245,14 @@ export default function MusicUploader({ onUploaded, compact = false }: Props) {
               </li>
             ))}
           </ul>
+
+          <FolderSelect
+            folders={folders}
+            value={folderId}
+            onChange={setFolderId}
+            disabled={uploading}
+            label="Guardar en"
+          />
 
           <div className="flex flex-wrap gap-2 text-xs">
             {(

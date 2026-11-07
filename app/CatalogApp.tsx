@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch, parseArtistTitle } from "@/lib/artistGroups";
 import type { KaraokeVideo } from "@/lib/karaoke";
 import type { SitePublicConfig } from "@/lib/siteConfig";
-import type { SongGroup } from "@/lib/types";
+import type { LibraryFolder, SongGroup } from "@/lib/types";
 import AdminLogin from "./components/AdminLogin";
 import AulaDecor from "./components/AulaDecor";
 import AulaLogin from "./components/AulaLogin";
@@ -18,6 +18,7 @@ import DeleteSongModal from "./components/DeleteSongModal";
 import EditSongModal from "./components/EditSongModal";
 import KaraokeList from "./components/KaraokeList";
 import KaraokePlayer from "./components/KaraokePlayer";
+import KaraokeRequestForm from "./components/KaraokeRequestForm";
 import KaraokeUploader from "./components/KaraokeUploader";
 import SongList from "./components/SongList";
 import Player, { type PlaybackVariant } from "./components/Player";
@@ -27,7 +28,7 @@ import MusicUploader from "./components/MusicUploader";
 import YoutubeImporter from "./components/YoutubeImporter";
 import { Disc, Search, FolderOpen, GraduationCap } from "./components/icons";
 
-type ApiResponse = { dir: string; groups: SongGroup[] };
+type ApiResponse = { dir: string; groups: SongGroup[]; folders?: LibraryFolder[] };
 
 type SessionResponse = SitePublicConfig & { admin?: boolean; viewer?: boolean };
 
@@ -37,6 +38,7 @@ type Props = {
 
 export default function CatalogApp({ initialSite }: Props) {
   const [groups, setGroups] = useState<SongGroup[]>([]);
+  const [folders, setFolders] = useState<LibraryFolder[]>([]);
   const [musicDir, setMusicDir] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +72,8 @@ export default function CatalogApp({ initialSite }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canManage = admin;
   const canEditLyrics = siteMode === "aula" && viewer;
+  /** En el aula solo el admin añade o borra karaokes; la clase solo los ve. */
+  const canManageKaraoke = siteMode === "aula" ? Boolean(admin && adminRequired) : admin;
 
   async function refresh(preferGroupKey?: string | null): Promise<SongGroup[]> {
     setLoading(true);
@@ -79,6 +83,7 @@ export default function CatalogApp({ initialSite }: Props) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ApiResponse = await res.json();
       setGroups(data.groups);
+      setFolders(data.folders ?? []);
       setMusicDir(data.dir);
 
       const preferred =
@@ -339,7 +344,13 @@ export default function CatalogApp({ initialSite }: Props) {
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(320px,420px)_1fr] lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
           <section className="glass order-2 rounded-3xl p-4 animate-fade-up md:p-5 lg:order-none lg:col-start-1 lg:row-span-2">
             {aula && canManage ? <ClassAccessPanel /> : null}
-            {aula ? <DownloadRequests admin={canManage} groups={groups} /> : null}
+            {aula ? (
+              <DownloadRequests
+                admin={canManage}
+                groups={groups}
+                onAccepted={() => void refreshKaraoke()}
+              />
+            ) : null}
             <div className="mb-4 flex rounded-full border border-white/10 bg-white/5 p-1 text-xs">
               <button
                 type="button"
@@ -362,7 +373,11 @@ export default function CatalogApp({ initialSite }: Props) {
             </div>
             {libraryTab === "karaoke" ? (
               <>
-                {canManage ? <KaraokeUploader onAdded={(video) => void refreshKaraoke(video.id)} /> : null}
+                {canManageKaraoke ? (
+                  <KaraokeUploader onAdded={(video) => void refreshKaraoke(video.id)} />
+                ) : aula ? (
+                  <KaraokeRequestForm />
+                ) : null}
                 <div className="relative mb-4">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
                   <input
@@ -390,12 +405,12 @@ export default function CatalogApp({ initialSite }: Props) {
                     {karaokeError}
                   </div>
                 ) : karaokeVideos.length === 0 && !karaokeLoading ? (
-                  <KaraokeEmptyState canManage={canManage} />
+                  <KaraokeEmptyState canManage={canManageKaraoke} />
                 ) : (
                   <KaraokeList
                     videos={filteredKaraoke}
                     selectedId={selectedKaraokeId}
-                    canManage={canManage}
+                    canManage={canManageKaraoke}
                     onSelect={handleSelectKaraoke}
                     onDeleted={(id) => {
                       if (selectedKaraokeId === id) setSelectedKaraokeId(null);
@@ -417,9 +432,9 @@ export default function CatalogApp({ initialSite }: Props) {
             ) : null}
             {canManage ? (
               <div className="mb-5 space-y-5">
-                <YoutubeImporter onImported={handleImported} />
+                <YoutubeImporter folders={folders} onImported={handleImported} />
                 <div className="border-t border-white/10" />
-                <MusicUploader onUploaded={handleUploaded} compact />
+                <MusicUploader folders={folders} onUploaded={handleUploaded} compact />
               </div>
             ) : null}
 
@@ -428,7 +443,7 @@ export default function CatalogApp({ initialSite }: Props) {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar cantante o canción…"
+                placeholder="Buscar canción o carpeta…"
                 className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-base text-white placeholder:text-white/40 outline-none transition focus:border-violet-400/60 focus:bg-white/10 sm:text-sm"
               />
             </div>
@@ -451,14 +466,74 @@ export default function CatalogApp({ initialSite }: Props) {
               <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
                 {error}
               </div>
-            ) : groups.length === 0 && !loading ? (
+            ) : groups.length === 0 && folders.length === 0 && !loading && !canManage ? (
               <EmptyState dir={musicDir} canManage={canManage} aula={aula} />
             ) : (
+              <>
+            {groups.length === 0 && !loading ? (
+              <EmptyState dir={musicDir} canManage={canManage} aula={aula} />
+            ) : null}
               <SongList
                 groups={filtered}
+                folders={folders}
                 selectedGroupKey={selectedGroupKey}
                 canManage={canManage}
                 canEditLyrics={canEditLyrics}
+                searching={Boolean(query.trim())}
+                onCreateFolder={
+                  canManage
+                    ? async (name) => {
+                        const res = await fetch("/api/folders", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ name }),
+                        });
+                        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+                        if (!res.ok) throw new Error(data?.error ?? "No se pudo crear la carpeta");
+                        await refresh();
+                      }
+                    : undefined
+                }
+                onRenameFolder={
+                  canManage
+                    ? async (folderId, name) => {
+                        const res = await fetch(`/api/folders/${encodeURIComponent(folderId)}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ name }),
+                        });
+                        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+                        if (!res.ok) throw new Error(data?.error ?? "No se pudo renombrar");
+                        await refresh();
+                      }
+                    : undefined
+                }
+                onDeleteFolder={
+                  canManage
+                    ? async (folderId) => {
+                        const res = await fetch(`/api/folders/${encodeURIComponent(folderId)}`, {
+                          method: "DELETE",
+                        });
+                        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+                        if (!res.ok) throw new Error(data?.error ?? "No se pudo borrar");
+                        await refresh();
+                      }
+                    : undefined
+                }
+                onMoveSong={
+                  canManage
+                    ? async (group, folderId) => {
+                        const res = await fetch(`/api/songs/${encodeURIComponent(group.groupKey)}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ folderId }),
+                        });
+                        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+                        if (!res.ok) throw new Error(data?.error ?? "No se pudo mover");
+                        await refresh(group.groupKey);
+                      }
+                    : undefined
+                }
                 onSelect={handleSelect}
                 onRequestLyrics={(g) => {
                   setSelectedGroupKey(g.groupKey);
@@ -485,6 +560,7 @@ export default function CatalogApp({ initialSite }: Props) {
                   setShowDeleteModal(true);
                 }}
               />
+              </>
             )}
               </>
             )}
@@ -538,6 +614,7 @@ export default function CatalogApp({ initialSite }: Props) {
 
       {showCatalogImport ? (
         <CatalogImportModal
+          folders={folders}
           onClose={() => setShowCatalogImport(false)}
           onImported={() => void refresh()}
         />
@@ -602,6 +679,7 @@ export default function CatalogApp({ initialSite }: Props) {
       {canManage && showEditModal && actionGroup ? (
         <EditSongModal
           group={actionGroup}
+          folders={folders}
           onClose={() => {
             setShowEditModal(false);
             setActionGroup(null);
@@ -647,7 +725,7 @@ function KaraokeEmptyState({ canManage }: { canManage: boolean }) {
       {canManage ? (
         <p className="mt-1">Sube un vídeo o pega un enlace de YouTube para cantarlos aquí.</p>
       ) : (
-        <p className="mt-1">Cuando haya vídeos de karaoke, aparecerán aquí.</p>
+        <p className="mt-1">Pide uno con un enlace de YouTube. Cuando se acepte, aparecerá aquí.</p>
       )}
     </div>
   );

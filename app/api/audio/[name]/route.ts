@@ -2,6 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveLibraryFile } from "@/lib/library";
 import { getMusicDir, safeBasename } from "@/lib/musicDir";
 import { requireViewer } from "@/lib/viewerAuth";
 
@@ -27,7 +28,7 @@ export async function GET(
     const { name } = await ctx.params;
     const fileName = safeBasename(decodeURIComponent(name));
     const dir = await getMusicDir();
-    const filePath = path.join(dir, fileName);
+    const filePath = await resolveLibraryFile(dir, fileName);
 
     const stat = await fsp.stat(filePath);
     if (!stat.isFile()) {

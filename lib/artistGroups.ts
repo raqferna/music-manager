@@ -78,6 +78,7 @@ export function matchesSearch(group: SongGroup, query: string): boolean {
   if (!q) return true;
 
   const { artist, songTitle } = parseArtistTitle(group.groupKey);
+  const folder = (group.folderId ?? "").toLowerCase();
   return (
     group.title.toLowerCase().includes(q) ||
     group.groupKey.toLowerCase().includes(q) ||
@@ -85,6 +86,7 @@ export function matchesSearch(group: SongGroup, query: string): boolean {
     songTitle.toLowerCase().includes(q) ||
     formatLabel(artist).toLowerCase().includes(q) ||
     formatLabel(songTitle).toLowerCase().includes(q) ||
+    folder.includes(q) ||
     (group.instrumentalFile?.toLowerCase().includes(q) ?? false) ||
     (group.vocalFile?.toLowerCase().includes(q) ?? false)
   );
